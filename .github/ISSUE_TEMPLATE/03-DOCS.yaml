@@ -1,7 +1,7 @@
 name: "Docs📝"
 description: Request a documentation update
 title: "docs(scope): description"
-type: "Docs📝"
+labels: ["documentation"]
 body:
   - type: textarea
     id: description

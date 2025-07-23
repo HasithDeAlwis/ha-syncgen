@@ -1,7 +1,7 @@
 name: "Chore🧹"
 description: Create a new chore
 title: "chore(scope): description"
-type: "Chore🧹"
+labels: ["chore"]
 body:
   - type: textarea
     id: description

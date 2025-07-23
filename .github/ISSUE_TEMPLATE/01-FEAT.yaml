@@ -1,7 +1,7 @@
 name: "Feat🎯"
 description: Request a new feature
 title: "feat(scope): description"
-type: "Feat🎯"
+labels: ["enhancement", "feature"]
 body:
   - type: textarea
     id: summary

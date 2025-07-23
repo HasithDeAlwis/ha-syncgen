@@ -1,0 +1,27 @@
+# Binaries
+syncgen
+syncgen.exe
+dist/
+
+# Generated output
+generated/
+
+# Go specific
+*.mod.sum
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test output
+coverage.out

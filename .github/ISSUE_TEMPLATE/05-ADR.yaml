@@ -1,7 +1,7 @@
 name: "R&D🔎"
 description: Create a new R&D task
 title: "adr(scope): description"
-type: "R&D🔎"
+labels: ["research", "adr"]
 body:
   - type: textarea
     id: objective
