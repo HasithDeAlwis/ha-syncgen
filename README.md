@@ -1,4 +1,4 @@
-# ha-syncgen
+# WIP: ha-syncgen
 
 > A declarative, YAML-powered tool for scaffolding high-availability PostgreSQL infrastructure using rsync and systemd.
 
