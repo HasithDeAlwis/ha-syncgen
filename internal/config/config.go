@@ -34,7 +34,7 @@ func Parse(filename string) (*Config, error) {
 	}
 
 	if err := Validate(&config); err != nil {
-		return nil, fmt.Errorf("validation error: %w", err)
+		return nil, fmt.Errorf("validation error:\n%w", err)
 	}
 
 	return &config, nil
