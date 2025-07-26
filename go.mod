@@ -1,4 +1,4 @@
-module ha-syncgen
+module syncgen
 
 go 1.23.3
 

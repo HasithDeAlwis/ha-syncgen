@@ -23,9 +23,9 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "ha-syncgen",
+	Use:   "syncgen",
 	Short: "PostgreSQL High Availability synchronization and failover automation tool",
-	Long: `ha-syncgen is a command-line tool for setting up and managing PostgreSQL high availability
+	Long: `syncgen is a command-line tool for setting up and managing PostgreSQL high availability
 configurations using file-level synchronization and automated failover mechanisms.
 
 The tool generates the necessary scripts, configuration files, and systemd services to
