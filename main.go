@@ -1,6 +1,6 @@
 package main
 
-import "ha-syncgen/cmd"
+import "syncgen/cmd"
 
 func main() {
 	cmd.Execute()

@@ -5,7 +5,7 @@ package cmd
 
 import (
 	"fmt"
-	"ha-syncgen/internal/config"
+	"syncgen/internal/config"
 
 	"github.com/spf13/cobra"
 )
