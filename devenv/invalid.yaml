@@ -1,0 +1,6 @@
+
+# Example cluster configuration for ha-syncgen
+# This file demonstrates how to configure a PostgreSQL HA cluster
+
+primary:
+  port: 5432
