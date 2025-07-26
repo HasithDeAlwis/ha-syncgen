@@ -1,0 +1,12 @@
+# Example cluster configuration for ha-syncgen
+# This file demonstrates how to configure a PostgreSQL HA cluster
+
+primary:
+  host: 10.0.0.1
+  port: 5432
+
+replicas:
+  - host: 10.0.0.2
+    sync_interval: 30s
+  - host: 10.0.0.3
+    sync_interval: 60s
