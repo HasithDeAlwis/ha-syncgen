@@ -1,12 +1,27 @@
 # Example cluster configuration for ha-syncgen
-# This file demonstrates how to configure a PostgreSQL HA cluster
+# This file demonstrates how to configure a PostgreSQL HA cluster with streaming replication
 
 primary:
   host: 10.0.0.1
   port: 5432
+  data_directory: /var/lib/postgresql/data
+  replication_user: replicator
+  replication_password: secure_password_here
 
 replicas:
   - host: 10.0.0.2
-    sync_interval: 30s
+    port: 5432
+    replication_slot: replica_slot_1
+    sync_mode: async
   - host: 10.0.0.3
-    sync_interval: 60s
+    port: 5432
+    replication_slot: replica_slot_2
+    sync_mode: async
+
+options:
+  promote_on_failure: true
+  wal_level: replica
+  max_wal_senders: 3
+  wal_keep_size: 1GB
+  hot_standby: true
+  synchronous_commit: on

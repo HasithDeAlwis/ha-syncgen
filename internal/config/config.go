@@ -8,19 +8,28 @@ import (
 )
 
 type Primary struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
+	Host                string `yaml:"host"`
+	Port                int    `yaml:"port"`
+	DataDirectory       string `yaml:"data_directory"`
+	ReplicationUser     string `yaml:"replication_user"`
+	ReplicationPassword string `yaml:"replication_password"`
 }
 
 type Replica struct {
-	Host         string `yaml:"host"`
-	SyncInterval string `yaml:"sync_interval"`
+	Host            string `yaml:"host"`
+	Port            int    `yaml:"port"`
+	ReplicationSlot string `yaml:"replication_slot"`
+	SyncMode        string `yaml:"sync_mode"`
 }
 
 type Options struct {
-	RsyncUser        string `yaml:"rsync_user"`
-	PromoteOnFailure bool   `yaml:"promote_on_failure"`
-	Observability    string `yaml:"observability,omitempty"`
+	PromoteOnFailure  bool   `yaml:"promote_on_failure"`
+	Observability     string `yaml:"observability,omitempty"`
+	WalLevel          string `yaml:"wal_level"`
+	MaxWalSenders     int    `yaml:"max_wal_senders"`
+	WalKeepSize       string `yaml:"wal_keep_size"`
+	HotStandby        bool   `yaml:"hot_standby"`
+	SynchronousCommit string `yaml:"synchronous_commit"`
 }
 
 type Config struct {
