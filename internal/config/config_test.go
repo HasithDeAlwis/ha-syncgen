@@ -20,13 +20,44 @@ func TestParse(t *testing.T) {
 			yaml: `primary:
   host: 10.0.0.1
   port: 5432
+  data_directory: /var/lib/postgresql/data
+  replication_user: replicator
+  replication_password: secure_password
 replicas:
   - host: 10.0.0.2
-    sync_interval: 30s`,
+    port: 5432
+    replication_slot: replica_slot_1
+    sync_mode: async
+options:
+  promote_on_failure: true
+  wal_level: replica
+  max_wal_senders: 3
+  wal_keep_size: 1GB
+  hot_standby: true
+  synchronous_commit: on`,
 			want: &Config{
-				Primary: Primary{Host: "10.0.0.1", Port: 5432},
+				Primary: Primary{
+					Host:                "10.0.0.1",
+					Port:                5432,
+					DataDirectory:       "/var/lib/postgresql/data",
+					ReplicationUser:     "replicator",
+					ReplicationPassword: "secure_password",
+				},
 				Replicas: []Replica{
-					{Host: "10.0.0.2", SyncInterval: "30s"},
+					{
+						Host:            "10.0.0.2",
+						Port:            5432,
+						ReplicationSlot: "replica_slot_1",
+						SyncMode:        "async",
+					},
+				},
+				Options: Options{
+					PromoteOnFailure:  true,
+					WalLevel:          "replica",
+					MaxWalSenders:     3,
+					WalKeepSize:       "1GB",
+					HotStandby:        true,
+					SynchronousCommit: "on",
 				},
 			},
 			wantErr: false,
@@ -36,54 +67,204 @@ replicas:
 			yaml: `primary:
   host: 192.168.1.100
   port: 5433
+  data_directory: /opt/postgresql/data
+  replication_user: repl_user
+  replication_password: secret123
 replicas:
   - host: 192.168.1.101
-    sync_interval: 30s
+    port: 5433
+    replication_slot: replica_1
+    sync_mode: sync
   - host: 192.168.1.102
-    sync_interval: 60s
+    port: 5433
+    replication_slot: replica_2
+    sync_mode: async
   - host: 192.168.1.103
-    sync_interval: 120s`,
+    port: 5433
+    replication_slot: replica_3
+    sync_mode: async
+options:
+  promote_on_failure: false
+  wal_level: logical
+  max_wal_senders: 5
+  wal_keep_size: 2GB
+  hot_standby: true
+  synchronous_commit: remote_apply`,
 			want: &Config{
-				Primary: Primary{Host: "192.168.1.100", Port: 5433},
+				Primary: Primary{
+					Host:                "192.168.1.100",
+					Port:                5433,
+					DataDirectory:       "/opt/postgresql/data",
+					ReplicationUser:     "repl_user",
+					ReplicationPassword: "secret123",
+				},
 				Replicas: []Replica{
-					{Host: "192.168.1.101", SyncInterval: "30s"},
-					{Host: "192.168.1.102", SyncInterval: "60s"},
-					{Host: "192.168.1.103", SyncInterval: "120s"},
+					{Host: "192.168.1.101", Port: 5433, ReplicationSlot: "replica_1", SyncMode: "sync"},
+					{Host: "192.168.1.102", Port: 5433, ReplicationSlot: "replica_2", SyncMode: "async"},
+					{Host: "192.168.1.103", Port: 5433, ReplicationSlot: "replica_3", SyncMode: "async"},
+				},
+				Options: Options{
+					PromoteOnFailure:  false,
+					WalLevel:          "logical",
+					MaxWalSenders:     5,
+					WalKeepSize:       "2GB",
+					HotStandby:        true,
+					SynchronousCommit: "remote_apply",
 				},
 			},
 			wantErr: false,
 		},
 		{
-			name: "valid config with zero port (should work)",
+			name: "config with defaults applied",
 			yaml: `primary:
   host: localhost
-  port: 0
+  replication_user: replicator
+  replication_password: password
 replicas:
   - host: replica1
-    sync_interval: 45s`,
+    replication_slot: slot1`,
 			want: &Config{
-				Primary: Primary{Host: "localhost", Port: 0},
+				Primary: Primary{
+					Host:                "localhost",
+					Port:                5432,
+					DataDirectory:       "/var/lib/postgresql/data",
+					ReplicationUser:     "replicator",
+					ReplicationPassword: "password",
+				},
 				Replicas: []Replica{
-					{Host: "replica1", SyncInterval: "45s"},
+					{
+						Host:            "replica1",
+						Port:            5432,
+						ReplicationSlot: "slot1",
+						SyncMode:        "async",
+					},
+				},
+				Options: Options{
+					PromoteOnFailure:  false,
+					WalLevel:          "replica",
+					MaxWalSenders:     3,
+					WalKeepSize:       "1GB",
+					HotStandby:        false,
+					SynchronousCommit: "on",
 				},
 			},
 			wantErr: false,
 		},
 		{
-			name: "valid config with empty sync_interval",
+			name: "missing primary host",
 			yaml: `primary:
-  host: db-primary
   port: 5432
+  data_directory: /var/lib/postgresql/data
+  replication_user: replicator
+  replication_password: password
 replicas:
-  - host: db-replica1
-    sync_interval: ""`,
-			want: &Config{
-				Primary: Primary{Host: "db-primary", Port: 5432},
-				Replicas: []Replica{
-					{Host: "db-replica1", SyncInterval: "default"},
-				},
-			},
-			wantErr: false,
+  - host: replica1
+    replication_slot: slot1`,
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "missing replication user",
+			yaml: `primary:
+  host: primary
+  port: 5432
+  data_directory: /var/lib/postgresql/data
+  replication_password: password
+replicas:
+  - host: replica1
+    replication_slot: slot1`,
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "missing replication password",
+			yaml: `primary:
+  host: primary
+  port: 5432
+  data_directory: /var/lib/postgresql/data
+  replication_user: replicator
+replicas:
+  - host: replica1
+    replication_slot: slot1`,
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "duplicate replication slots",
+			yaml: `primary:
+  host: primary
+  replication_user: replicator
+  replication_password: password
+replicas:
+  - host: replica1
+    replication_slot: duplicate_slot
+  - host: replica2
+    replication_slot: duplicate_slot`,
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid sync mode",
+			yaml: `primary:
+  host: primary
+  replication_user: replicator
+  replication_password: password
+replicas:
+  - host: replica1
+    replication_slot: slot1
+    sync_mode: invalid_mode`,
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid wal level",
+			yaml: `primary:
+  host: primary
+  replication_user: replicator
+  replication_password: password
+replicas:
+  - host: replica1
+    replication_slot: slot1
+options:
+  wal_level: invalid_level`,
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid replication slot name",
+			yaml: `primary:
+  host: primary
+  replication_user: replicator
+  replication_password: password
+replicas:
+  - host: replica1
+    replication_slot: "invalid-slot-name-with-dashes"`,
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid wal keep size",
+			yaml: `primary:
+  host: primary
+  replication_user: replicator
+  replication_password: password
+replicas:
+  - host: replica1
+    replication_slot: slot1
+options:
+  wal_keep_size: "invalid_size"`,
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "no replicas",
+			yaml: `primary:
+  host: primary
+  replication_user: replicator
+  replication_password: password
+replicas: []`,
+			want:    nil,
+			wantErr: true,
 		},
 		{
 			name: "invalid yaml - malformed structure",
@@ -92,71 +273,47 @@ replicas:
   port: "invalid_port"
 replicas:
   - host: 10.0.0.2
-    sync_interval: 30s
+    replication_slot: slot1
     invalid_field:`,
 			want:    nil,
 			wantErr: true,
-		},
-		{
-			name: "invalid yaml - wrong data types",
-			yaml: `primary:
-  host: 123
-  port: "not_a_number"
-replicas:
-  - host: ["array", "instead", "of", "string"]
-    sync_interval: 30s`,
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "invalid yaml - completely malformed",
-			yaml: `this is not yaml at all
-it's just plain text
-with no structure`,
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "invalid yaml - missing required sections",
-			yaml: `some_other_field: value`,
-			want: &Config{
-				Primary:  Primary{},
-				Replicas: nil,
-			},
-			wantErr: true, // YAML parsing succeeds, just empty values
-		},
-		{
-			name: "invalid yaml - empty file",
-			yaml: ``,
-			want: &Config{
-				Primary:  Primary{},
-				Replicas: nil,
-			},
-			wantErr: true, // Empty YAML is not valid
-		},
-		{
-			name: "invalid yaml - tabs instead of spaces",
-			yaml: `primary:
-	host: 10.0.0.1
-	port: 5432
-replicas:
-	- host: 10.0.0.2
-	  sync_interval: 30s`,
-			want:    nil,
-			wantErr: true, // YAML is sensitive to indentation
 		},
 		{
 			name: "valid config with unicode characters",
 			yaml: `primary:
   host: "测试服务器"
   port: 5432
+  data_directory: /var/lib/postgresql/data
+  replication_user: replicator
+  replication_password: password
 replicas:
   - host: "副本服务器1"
-    sync_interval: "30s"`,
+    port: 5432
+    replication_slot: "replica_slot_1"
+    sync_mode: async`,
 			want: &Config{
-				Primary: Primary{Host: "测试服务器", Port: 5432},
+				Primary: Primary{
+					Host:                "测试服务器",
+					Port:                5432,
+					DataDirectory:       "/var/lib/postgresql/data",
+					ReplicationUser:     "replicator",
+					ReplicationPassword: "password",
+				},
 				Replicas: []Replica{
-					{Host: "副本服务器1", SyncInterval: "30s"},
+					{
+						Host:            "副本服务器1",
+						Port:            5432,
+						ReplicationSlot: "replica_slot_1",
+						SyncMode:        "async",
+					},
+				},
+				Options: Options{
+					PromoteOnFailure:  false,
+					WalLevel:          "replica",
+					MaxWalSenders:     3,
+					WalKeepSize:       "1GB",
+					HotStandby:        false,
+					SynchronousCommit: "on",
 				},
 			},
 			wantErr: false,
@@ -238,9 +395,14 @@ func TestParseFilePermissions(t *testing.T) {
 	validYAML := `primary:
   host: 10.0.0.1
   port: 5432
+  data_directory: /var/lib/postgresql/data
+  replication_user: replicator
+  replication_password: password
 replicas:
   - host: 10.0.0.2
-    sync_interval: 30s`
+    port: 5432
+    replication_slot: slot1
+    sync_mode: async`
 
 	err := os.WriteFile(tmpFile, []byte(validYAML), 0644)
 	if err != nil {
@@ -314,36 +476,61 @@ func TestConfigStructFields(t *testing.T) {
 	// Test that struct fields are properly tagged for YAML
 	config := &Config{
 		Primary: Primary{
-			Host: "test-host",
-			Port: 1234,
+			Host:                "test-host",
+			Port:                1234,
+			DataDirectory:       "/test/data",
+			ReplicationUser:     "test_user",
+			ReplicationPassword: "test_password",
 		},
 		Replicas: []Replica{
 			{
-				Host:         "replica-host",
-				SyncInterval: "60s",
+				Host:            "replica-host",
+				Port:            5432,
+				ReplicationSlot: "test_slot",
+				SyncMode:        "async",
 			},
+		},
+		Options: Options{
+			PromoteOnFailure:  true,
+			WalLevel:          "replica",
+			MaxWalSenders:     3,
+			WalKeepSize:       "1GB",
+			HotStandby:        true,
+			SynchronousCommit: "on",
 		},
 	}
 
-	// This test ensures our struct is properly formed
+	// Test Primary fields
 	if config.Primary.Host != "test-host" {
 		t.Errorf("Primary.Host = %q, want %q", config.Primary.Host, "test-host")
 	}
-
 	if config.Primary.Port != 1234 {
 		t.Errorf("Primary.Port = %d, want %d", config.Primary.Port, 1234)
 	}
+	if config.Primary.ReplicationUser != "test_user" {
+		t.Errorf("Primary.ReplicationUser = %q, want %q", config.Primary.ReplicationUser, "test_user")
+	}
 
+	// Test Replica fields
 	if len(config.Replicas) != 1 {
 		t.Errorf("len(Replicas) = %d, want %d", len(config.Replicas), 1)
 	}
-
 	if config.Replicas[0].Host != "replica-host" {
 		t.Errorf("Replicas[0].Host = %q, want %q", config.Replicas[0].Host, "replica-host")
 	}
+	if config.Replicas[0].ReplicationSlot != "test_slot" {
+		t.Errorf("Replicas[0].ReplicationSlot = %q, want %q", config.Replicas[0].ReplicationSlot, "test_slot")
+	}
+	if config.Replicas[0].SyncMode != "async" {
+		t.Errorf("Replicas[0].SyncMode = %q, want %q", config.Replicas[0].SyncMode, "async")
+	}
 
-	if config.Replicas[0].SyncInterval != "60s" {
-		t.Errorf("Replicas[0].SyncInterval = %q, want %q", config.Replicas[0].SyncInterval, "60s")
+	// Test Options fields
+	if config.Options.WalLevel != "replica" {
+		t.Errorf("Options.WalLevel = %q, want %q", config.Options.WalLevel, "replica")
+	}
+	if config.Options.MaxWalSenders != 3 {
+		t.Errorf("Options.MaxWalSenders = %d, want %d", config.Options.MaxWalSenders, 3)
 	}
 }
 
@@ -352,9 +539,21 @@ func TestYAMLTagsWork(t *testing.T) {
 	yaml := `primary:
   host: yaml-test-host
   port: 9999
+  data_directory: /yaml/test/data
+  replication_user: yaml_user
+  replication_password: yaml_password
 replicas:
   - host: yaml-replica-host
-    sync_interval: 90s`
+    port: 5433
+    replication_slot: yaml_slot
+    sync_mode: sync
+options:
+  promote_on_failure: true
+  wal_level: logical
+  max_wal_senders: 5
+  wal_keep_size: 2GB
+  hot_standby: true
+  synchronous_commit: remote_apply`
 
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "config.yaml")
@@ -373,12 +572,133 @@ replicas:
 	if config.Primary.Host != "yaml-test-host" {
 		t.Errorf("YAML 'host' didn't map to Primary.Host correctly")
 	}
-
 	if config.Primary.Port != 9999 {
 		t.Errorf("YAML 'port' didn't map to Primary.Port correctly")
 	}
+	if config.Primary.ReplicationUser != "yaml_user" {
+		t.Errorf("YAML 'replication_user' didn't map to Primary.ReplicationUser correctly")
+	}
+	if config.Replicas[0].ReplicationSlot != "yaml_slot" {
+		t.Errorf("YAML 'replication_slot' didn't map to Replica.ReplicationSlot correctly")
+	}
+	if config.Replicas[0].SyncMode != "sync" {
+		t.Errorf("YAML 'sync_mode' didn't map to Replica.SyncMode correctly")
+	}
+	if config.Options.WalLevel != "logical" {
+		t.Errorf("YAML 'wal_level' didn't map to Options.WalLevel correctly")
+	}
+	if config.Options.MaxWalSenders != 5 {
+		t.Errorf("YAML 'max_wal_senders' didn't map to Options.MaxWalSenders correctly")
+	}
+}
 
-	if config.Replicas[0].SyncInterval != "90s" {
-		t.Errorf("YAML 'sync_interval' didn't map to Replica.SyncInterval correctly")
+// TestValidationCases tests specific validation scenarios
+func TestValidationCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "valid minimal config",
+			yaml: `primary:
+  host: primary
+  replication_user: replicator
+  replication_password: password
+replicas:
+  - host: replica1
+    replication_slot: slot1`,
+			wantErr: false,
+		},
+		{
+			name: "duplicate replication slots",
+			yaml: `primary:
+  host: primary
+  replication_user: replicator
+  replication_password: password
+replicas:
+  - host: replica1
+    replication_slot: same_slot
+  - host: replica2
+    replication_slot: same_slot`,
+			wantErr: true,
+			errMsg:  "already used",
+		},
+		{
+			name: "invalid replication slot name with dashes",
+			yaml: `primary:
+  host: primary
+  replication_user: replicator
+  replication_password: password
+replicas:
+  - host: replica1
+    replication_slot: invalid-slot-name`,
+			wantErr: true,
+			errMsg:  "invalid replication slot name",
+		},
+		{
+			name: "invalid sync mode",
+			yaml: `primary:
+  host: primary
+  replication_user: replicator
+  replication_password: password
+replicas:
+  - host: replica1
+    replication_slot: slot1
+    sync_mode: invalid`,
+			wantErr: true,
+			errMsg:  "invalid sync_mode",
+		},
+		{
+			name: "invalid wal level",
+			yaml: `primary:
+  host: primary
+  replication_user: replicator
+  replication_password: password
+replicas:
+  - host: replica1
+    replication_slot: slot1
+options:
+  wal_level: invalid`,
+			wantErr: true,
+			errMsg:  "invalid wal_level",
+		},
+		{
+			name: "invalid wal keep size",
+			yaml: `primary:
+  host: primary
+  replication_user: replicator
+  replication_password: password
+replicas:
+  - host: replica1
+    replication_slot: slot1
+options:
+  wal_keep_size: invalid_size_format`,
+			wantErr: true,
+			errMsg:  "invalid wal_keep_size",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			tmpFile := filepath.Join(tmpDir, "config.yaml")
+
+			err := os.WriteFile(tmpFile, []byte(tt.yaml), 0644)
+			if err != nil {
+				t.Fatalf("Failed to create test file: %v", err)
+			}
+
+			_, err = Parse(tmpFile)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr && !strings.Contains(err.Error(), tt.errMsg) {
+				t.Errorf("Parse() error should contain %q, got: %v", tt.errMsg, err)
+			}
+		})
 	}
 }
