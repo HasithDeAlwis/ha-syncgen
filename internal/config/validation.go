@@ -30,6 +30,11 @@ func Validate(cfg *Config) error {
 		}
 	}
 
+	// Validate options
+	if cfg.Options.RsyncUser == "" {
+		errs = append(errs, fmt.Errorf("options.rsync_user is required"))
+	}
+
 	return errors.Join(errs...)
 }
 

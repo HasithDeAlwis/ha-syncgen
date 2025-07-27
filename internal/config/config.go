@@ -17,9 +17,16 @@ type Replica struct {
 	SyncInterval string `yaml:"sync_interval"`
 }
 
+type Options struct {
+	RsyncUser        string `yaml:"rsync_user"`
+	PromoteOnFailure bool   `yaml:"promote_on_failure"`
+	Observability    string `yaml:"observability,omitempty"`
+}
+
 type Config struct {
 	Primary  Primary   `yaml:"primary"`
 	Replicas []Replica `yaml:"replicas"`
+	Options  Options   `yaml:"options"`
 }
 
 func Parse(filename string) (*Config, error) {
