@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"syncgen/internal/config"
+	"syncgen/internal/generator"
 
 	"github.com/spf13/cobra"
 )
@@ -21,14 +23,38 @@ files for high-availability PostgreSQL setup including:
 	DisableFlagsInUseLine: true,
 
 	Run: func(cmd *cobra.Command, args []string) {
-
 		configFile := args[0]
 		cfg, err := config.Parse(configFile)
 		if err != nil {
 			fmt.Printf("Error parsing config file: %v\n", err)
 			return
 		}
+
+		// Print the configuration for user verification
+		fmt.Println("Configuration validated successfully:")
 		config.Print(cfg)
+
+		// Generate output directory
+		outputDir := "generated"
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			fmt.Printf("Error creating output directory: %v\n", err)
+			return
+		}
+
+		// Initialize generator and create all files
+		gen := generator.New(cfg, outputDir)
+		if err := gen.GenerateAll(); err != nil {
+			fmt.Printf("Error generating files: %v\n", err)
+			return
+		}
+
+		fmt.Printf("\n✅ HA PostgreSQL configuration generated successfully in '%s/' directory\n", outputDir)
+		fmt.Println("\nNext steps:")
+		fmt.Printf("1. Review the generated scripts in '%s/'\n", outputDir)
+		fmt.Println("2. Copy the scripts to your target servers")
+		fmt.Println("3. Set up PostgreSQL streaming replication by running the setup scripts")
+		fmt.Println("4. Install and enable the systemd services for automatic health monitoring")
+		fmt.Println("\nFor deployment help, run: syncgen --help")
 	},
 }
 
