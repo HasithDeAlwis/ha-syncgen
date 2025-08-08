@@ -24,7 +24,33 @@ func Validate(cfg *Config) error {
 
 	errs = append(errs, validateOptions(&cfg.Options)...)
 
+	errs = append(errs, validateMonitoringConfig(cfg.Monitoring)...)
+
 	return errors.Join(errs...)
+}
+
+func validateMonitoringConfig(monitoring Monitoring) []error {
+	var errs []error
+
+	if monitoring.Datadog.Enabled {
+		errs = append(errs, validateDatadogConfig(monitoring.Datadog)...)
+	}
+
+	return errs
+}
+
+func validateDatadogConfig(datadog DatadogConfig) []error {
+	var errs []error
+	if datadog.ApiKey == "" {
+		errs = append(errs, fmt.Errorf("monitoring.datadog.api_key is required when Datadog is enabled"))
+	}
+	if datadog.Site == "" {
+		datadog.Site = "datadoghq.com" // Default site
+	}
+	if datadog.DatadogUserPassword == "" {
+		errs = append(errs, fmt.Errorf("monitoring.datadog.datadog_user_password is required when Datadog is enabled"))
+	}
+	return errs
 }
 
 func validateOptions(options *Options) []error {
