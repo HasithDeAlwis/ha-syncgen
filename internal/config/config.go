@@ -20,11 +20,11 @@ type Primary struct {
 
 type Replica struct {
 	Host            string `yaml:"host"`
-	DbUser          string `yaml:"db_user"`
-	DbPassword      string `yaml:"db_password"`
 	Port            int    `yaml:"port"`
 	ReplicationSlot string `yaml:"replication_slot"`
 	SyncMode        string `yaml:"sync_mode"`
+	DbUser          string `yaml:"db_user"`
+	DbPassword      string `yaml:"db_password"`
 }
 
 type Options struct {
@@ -37,10 +37,22 @@ type Options struct {
 	SynchronousCommit string `yaml:"synchronous_commit"`
 }
 
+type Monitoring struct {
+	Datadog DatadogConfig `yaml:"datadog"`
+}
+
+type DatadogConfig struct {
+	Enabled             bool   `yaml:"enabled"`
+	ApiKey              string `yaml:"api_key"`
+	Site                string `yaml:"site"`
+	DatadogUserPassword string `yaml:"datadog_user_password"`
+}
+
 type Config struct {
-	Primary  Primary   `yaml:"primary"`
-	Replicas []Replica `yaml:"replicas"`
-	Options  Options   `yaml:"options"`
+	Primary    Primary    `yaml:"primary"`
+	Replicas   []Replica  `yaml:"replicas"`
+	Options    Options    `yaml:"options"`
+	Monitoring Monitoring `yaml:"monitoring"`
 }
 
 func Parse(filename string) (*Config, error) {
