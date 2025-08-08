@@ -1,5 +1,5 @@
 # Binaries
-syncgen
+/syncgen
 syncgen.exe
 dist/
 
@@ -27,3 +27,6 @@ Thumbs.db
 coverage.out
 
 ha-syncgen
+docs/node_modules/*
+docs/dist/*
+docs/.next/*
