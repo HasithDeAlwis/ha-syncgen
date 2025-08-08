@@ -1,0 +1,34 @@
+# Cloud configuration for testing ha-syncgen with real AWS instances
+cluster:
+  name: "aws-postgres-ha-test"
+  
+primary:
+  host: "REPLACE_WITH_PRIMARY_PRIVATE_IP"  # Will be updated after Terraform deploy
+  port: 5432
+  data_directory: "/var/lib/pgsql/14/data"
+  replication_user: "replicator"
+  replication_password: "secure_repl_pass_2025"
+
+replicas:
+  - host: "REPLACE_WITH_REPLICA1_PRIVATE_IP"  # Will be updated after Terraform deploy
+    port: 5432
+    replication_slot: "aws_replica_slot_1"
+    sync_mode: "async"
+    
+  - host: "REPLACE_WITH_REPLICA2_PRIVATE_IP"  # Will be updated after Terraform deploy
+    port: 5432
+    replication_slot: "aws_replica_slot_2"
+    sync_mode: "async"
+
+# PostgreSQL streaming configuration
+postgresql:
+  wal_level: "replica"
+  max_wal_senders: 5
+  wal_keep_size: "2GB"
+  hot_standby: true
+  synchronous_commit: "on"
+  
+# Monitoring configuration
+monitoring:
+  health_check_interval: "30s"
+  auto_promote_on_primary_failure: true
