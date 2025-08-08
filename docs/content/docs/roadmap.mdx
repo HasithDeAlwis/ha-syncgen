@@ -1,0 +1,203 @@
+---
+title: Roadmap
+description: Future plans and development roadmap for ha-syncgen
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Roadmap
+
+The future development plans for ha-syncgen and what's coming next.
+
+## Current Status: Alpha (v0.1.0)
+
+ha-syncgen is currently in early development with core functionality implemented for PostgreSQL streaming replication automation.
+
+<Callout type="info">
+  The tool successfully generates working PostgreSQL HA scripts and configurations, but is not yet production-ready.
+</Callout>
+
+## Short Term (Next 2-4 weeks)
+
+### 🔧 **Core Stability**
+- [ ] Comprehensive unit test coverage
+- [ ] Integration tests with real PostgreSQL instances
+- [ ] Error handling improvements
+- [ ] Input validation enhancements
+- [ ] Configuration file schema validation
+
+### 📚 **Documentation**
+- [x] Complete documentation site with Fumadocs
+- [x] Configuration reference guide
+- [x] Generated scripts explanation
+- [ ] Troubleshooting guide
+- [ ] Best practices guide
+- [ ] Video tutorials/demos
+
+### 🐛 **Bug Fixes**
+- [ ] Handle edge cases in YAML parsing
+- [ ] Improve PostgreSQL version compatibility
+- [ ] Fix systemd service file permissions
+- [ ] Resolve path handling on different Linux distributions
+
+## Medium Term (1-3 months)
+
+### 🚀 **Production Readiness**
+- [ ] Security audit and improvements
+- [ ] Performance optimizations
+- [ ] Logging and monitoring enhancements
+- [ ] Backup and recovery script generation
+- [ ] SSL/TLS configuration support
+
+### 🌐 **Deployment & Infrastructure**
+- [ ] Terraform modules for cloud deployment
+- [ ] Docker container support
+- [ ] Kubernetes operator development
+- [ ] Ansible playbook integration
+- [ ] CI/CD pipeline templates
+
+### 🔍 **Monitoring & Observability**
+- [ ] Prometheus metrics generation
+- [ ] Grafana dashboard templates
+- [ ] AlertManager rule generation
+- [ ] Health check API endpoints
+- [ ] Custom monitoring hooks
+
+### 📦 **Distribution**
+- [ ] Pre-built binary releases
+- [ ] Package manager distributions (brew, apt, yum)
+- [ ] Container images
+- [ ] Helm charts for Kubernetes
+
+## Long Term (3-6 months)
+
+### 🏗️ **Architecture Enhancements**
+- [ ] Plugin system for custom generators
+- [ ] Template customization support
+- [ ] Multi-database support (MySQL, MariaDB)
+- [ ] Cross-cloud deployment support
+- [ ] Disaster recovery automation
+
+### 🔄 **Advanced Features**
+- [ ] Logical replication support
+- [ ] Multi-master configurations
+- [ ] Automatic failback capabilities
+- [ ] Load balancer configuration generation
+- [ ] Connection pooling setup (PgBouncer)
+
+### 🌍 **Enterprise Features**
+- [ ] Role-based access control
+- [ ] Audit logging and compliance
+- [ ] Enterprise authentication integration
+- [ ] Multi-tenant cluster management
+- [ ] SLA monitoring and reporting
+
+### 🔧 **Developer Experience**
+- [ ] Web-based configuration UI
+- [ ] VS Code extension
+- [ ] Configuration validation IDE plugins
+- [ ] Interactive cluster setup wizard
+- [ ] Cluster visualization tools
+
+## Future Vision (6+ months)
+
+### 🤖 **Automation & AI**
+- [ ] Intelligent cluster sizing recommendations
+- [ ] Automated performance tuning
+- [ ] Predictive failure detection
+- [ ] Self-healing cluster capabilities
+- [ ] Cost optimization suggestions
+
+### 🌐 **Multi-Cloud & Hybrid**
+- [ ] Cross-cloud replication setups
+- [ ] Hybrid cloud configurations
+- [ ] Edge computing deployments
+- [ ] Serverless PostgreSQL integration
+- [ ] Global cluster orchestration
+
+### 🔗 **Ecosystem Integration**
+- [ ] Database migration tool integration
+- [ ] Backup solution integrations
+- [ ] Monitoring platform connectors
+- [ ] Service mesh integration
+- [ ] GitOps workflow support
+
+## Community & Contributions
+
+### 🤝 **Open Source Development**
+- [ ] Contributor guidelines and documentation
+- [ ] Community discussion forums
+- [ ] Regular contributor meetings
+- [ ] Mentorship program for new contributors
+- [ ] Bug bounty program
+
+### 📈 **Adoption & Growth**
+- [ ] Conference presentations and demos
+- [ ] Blog posts and tutorials
+- [ ] Community showcase examples
+- [ ] Case studies from real deployments
+- [ ] Integration with popular tools
+
+## How You Can Help
+
+### 🐛 **Testing & Feedback**
+- Test ha-syncgen with your PostgreSQL setups
+- Report bugs and issues on GitHub
+- Suggest feature improvements
+- Share your use cases and requirements
+
+### 💻 **Contributing**
+- Submit bug fixes and improvements
+- Add new features from the roadmap
+- Improve documentation and examples
+- Create tests and validation scripts
+
+### 📢 **Community**
+- Share your experiences using ha-syncgen
+- Write blog posts or tutorials
+- Present at meetups or conferences
+- Help other users in discussions
+
+## Release Schedule
+
+### v0.2.0 (Target: February 2025)
+- Core stability improvements
+- Comprehensive test suite
+- Enhanced error handling
+- Production-ready documentation
+
+### v0.3.0 (Target: March 2025)
+- Cloud deployment support
+- Monitoring and observability features
+- Package manager distributions
+- Security enhancements
+
+### v1.0.0 (Target: May 2025)
+- Production-ready release
+- Full feature set implementation
+- Enterprise-grade stability
+- Complete ecosystem integration
+
+<Callout type="warn">
+  Release dates are estimates and may change based on development progress and community feedback.
+</Callout>
+
+## Get Involved
+
+Want to contribute to ha-syncgen development?
+
+- **GitHub**: [github.com/HasithDeAlwis/ha-syncgen](https://github.com/HasithDeAlwis/ha-syncgen)
+- **Issues**: Report bugs and request features
+- **Discussions**: Join community conversations
+- **Pull Requests**: Submit code contributions
+
+## Stay Updated
+
+Follow the project for updates:
+
+- ⭐ Star the repository on GitHub
+- 📺 Watch for releases and updates
+- 📰 Check the changelog for new features
+- 💬 Join community discussions
+
+The roadmap is continuously updated based on user feedback and community needs. Your input helps shape the future of ha-syncgen!

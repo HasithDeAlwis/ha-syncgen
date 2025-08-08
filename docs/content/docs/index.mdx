@@ -1,0 +1,118 @@
+---
+title: Introduction
+description: PostgreSQL High Availability Streaming Replication Generator
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# ha-syncgen
+
+**PostgreSQL High Availability Streaming Replication Generator**
+
+ha-syncgen is a powerful automation tool that generates production-ready scripts and configurations for PostgreSQL streaming replication clusters. Transform a simple YAML configuration into a complete high-availability database setup.
+
+<Callout type="info">
+  ha-syncgen generates real shell scripts, configuration files, and systemd services that create functional PostgreSQL HA clusters.
+</Callout>
+
+## What it does
+
+- **Generates Shell Scripts**: Creates executable bash scripts for primary and replica setup
+- **Configuration Management**: Produces PostgreSQL configuration patches for streaming replication
+- **Authentication Setup**: Generates pg_hba.conf entries for secure replication connections
+- **Health Monitoring**: Creates systemd services and timers for automated health checks
+- **Failover Support**: Implements automatic promotion on primary failure
+
+## Quick Start
+
+```bash
+# Install ha-syncgen
+go install github.com/HasithDeAlwis/ha-syncgen@latest
+
+# Create a cluster configuration
+cat > cluster.yaml << EOF
+cluster:
+  name: "my-postgres-ha"
+  
+primary:
+  host: "10.0.1.10"
+  port: 5432
+  data_directory: "/var/lib/postgresql/data"
+  replication_user: "replicator"
+  replication_password: "secure_password"
+
+replicas:
+  - host: "10.0.1.11"
+    port: 5432
+    replication_slot: "replica_slot_1"
+    sync_mode: "async"
+EOF
+
+# Generate PostgreSQL HA scripts
+ha-syncgen build cluster.yaml
+
+# Deploy generated scripts to your servers
+# Scripts are created in the 'generated/' directory
+```
+
+## Generated Output
+
+After running `ha-syncgen build`, you'll find:
+
+- `generated/primary/` - Primary server setup scripts and configurations
+- `generated/replica-{host}/` - Replica-specific setup scripts for each replica
+- Complete PostgreSQL configuration patches
+- Systemd service files for automated monitoring
+- Health check scripts for failover detection
+
+## Key Features
+
+### 🚀 **Production Ready**
+- Generates scripts that work on real PostgreSQL installations
+- Follows PostgreSQL best practices for streaming replication
+- Includes proper error handling and logging
+
+### ⚙️ **Configuration Driven**
+- Simple YAML configuration defines entire cluster
+- Supports multiple replicas with different configurations
+- Flexible PostgreSQL settings and monitoring options
+
+### 🔄 **Streaming Replication**
+- Physical replication slots for reliable data streaming
+- WAL-based replication with configurable retention
+- Hot standby support for read-only queries on replicas
+
+### 🔍 **Health Monitoring**
+- Automated health checks with systemd timers
+- Primary failure detection and automatic promotion
+- Comprehensive logging and alerting
+
+### 🐧 **Linux Integration**
+- Systemd service and timer files
+- Proper user permissions and security settings
+- Compatible with major Linux distributions
+
+## Architecture
+
+ha-syncgen implements PostgreSQL streaming replication using:
+
+- **Physical Replication Slots**: Ensure WAL retention for reliable streaming
+- **pg_basebackup**: Initial replica data synchronization
+- **Standby Signal Files**: Enable hot standby mode on replicas
+- **Health Check Scripts**: Monitor primary availability and trigger failover
+- **Systemd Integration**: Automated service management and monitoring
+
+## Use Cases
+
+- **High Availability**: Eliminate single points of failure in PostgreSQL deployments
+- **Read Scaling**: Distribute read queries across multiple replica servers
+- **Disaster Recovery**: Maintain up-to-date copies of data for quick recovery
+- **Infrastructure Automation**: Standardize PostgreSQL HA deployments across environments
+
+## Next Steps
+
+- [Installation Guide](/docs/installation) - Install and configure ha-syncgen
+- [Configuration Reference](/docs/configuration) - Complete YAML configuration options
+- [Generated Scripts](/docs/generated-scripts) - Understanding the generated output
+- [Troubleshooting](/docs/troubleshooting) - Common issues and solutions
+- [Roadmap](/docs/roadmap) - Future development plans

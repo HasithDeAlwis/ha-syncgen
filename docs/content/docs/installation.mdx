@@ -1,0 +1,256 @@
+---
+title: Installation
+description: Install and set up ha-syncgen for PostgreSQL HA automation
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+# Installation
+
+Get ha-syncgen installed and ready to generate PostgreSQL HA configurations.
+
+## Prerequisites
+
+Before installing ha-syncgen, ensure you have:
+
+- **Go 1.23.3 or later** - Required for building and running ha-syncgen
+- **PostgreSQL 14+** - Target PostgreSQL version for your clusters
+- **Linux servers** - For deploying the generated scripts
+- **SSH access** - To deploy scripts to your PostgreSQL servers
+
+<Callout type="warning">
+  ha-syncgen generates scripts for Linux environments. Windows support is not currently available.
+</Callout>
+
+## Installation Methods
+
+<Tabs>
+<Tab value="go-install" label="Go Install (Recommended)">
+
+The easiest way to install ha-syncgen:
+
+```bash
+# Install latest version
+go install github.com/HasithDeAlwis/ha-syncgen@latest
+
+# Verify installation
+ha-syncgen --version
+```
+
+This will install the binary to your `$GOPATH/bin` directory (usually `~/go/bin`).
+
+</Tab>
+
+<Tab value="source" label="From Source">
+
+Build from source for development or customization:
+
+```bash
+# Clone the repository
+git clone https://github.com/HasithDeAlwis/ha-syncgen.git
+cd ha-syncgen
+
+# Build the binary
+go build -o ha-syncgen main.go
+
+# Optional: Install to system PATH
+sudo mv ha-syncgen /usr/local/bin/
+
+# Verify installation
+ha-syncgen --version
+```
+
+</Tab>
+
+<Tab value="download" label="Binary Download">
+
+Download pre-built binaries from GitHub releases:
+
+```bash
+# Download for Linux x64
+curl -L https://github.com/HasithDeAlwis/ha-syncgen/releases/latest/download/ha-syncgen-linux-amd64 -o ha-syncgen
+
+# Make executable
+chmod +x ha-syncgen
+
+# Move to PATH
+sudo mv ha-syncgen /usr/local/bin/
+
+# Verify
+ha-syncgen --version
+```
+
+</Tab>
+</Tabs>
+
+## Verify Installation
+
+Check that ha-syncgen is properly installed:
+
+```bash
+# Check version
+ha-syncgen --version
+
+# Show help
+ha-syncgen --help
+
+# Validate a sample configuration
+ha-syncgen validate examples/basic-cluster.yaml
+```
+
+## PostgreSQL Server Prerequisites
+
+On your PostgreSQL servers, ensure you have:
+
+### Required PostgreSQL Version
+```bash
+# Check PostgreSQL version (must be 14+)
+psql --version
+```
+
+### Required Packages
+```bash
+# Ubuntu/Debian
+sudo apt-get install postgresql postgresql-contrib
+
+# CentOS/RHEL/Amazon Linux
+sudo yum install postgresql-server postgresql-contrib
+
+# Arch Linux
+sudo pacman -S postgresql
+```
+
+### System Tools
+```bash
+# Required for health checks and monitoring
+sudo apt-get install netcat-openbsd  # Ubuntu/Debian
+sudo yum install nc                   # CentOS/RHEL
+```
+
+## Directory Structure
+
+After installation, ha-syncgen uses this directory structure:
+
+```
+project/
+├── cluster.yaml           # Your cluster configuration
+├── generated/             # Generated scripts and configs
+│   ├── primary/
+│   │   ├── setup_primary.sh
+│   │   ├── postgresql.conf.patch
+│   │   └── pg_hba.conf.patch
+│   └── replica-{host}/
+│       ├── setup_replication.sh
+│       ├── health_check.sh
+│       ├── ha-postgres-health.service
+│       └── ha-postgres-health.timer
+└── logs/                  # Optional: deployment logs
+```
+
+## Configuration File
+
+Create your first cluster configuration:
+
+```bash
+# Create a basic cluster configuration
+cat > my-cluster.yaml << 'EOF'
+cluster:
+  name: "production-postgres-ha"
+  
+primary:
+  host: "10.0.1.10"
+  port: 5432
+  data_directory: "/var/lib/postgresql/data"
+  replication_user: "replicator"
+  replication_password: "change-this-password"
+
+replicas:
+  - host: "10.0.1.11"
+    port: 5432
+    replication_slot: "replica_slot_1"
+    sync_mode: "async"
+    
+  - host: "10.0.1.12"
+    port: 5432
+    replication_slot: "replica_slot_2"
+    sync_mode: "async"
+
+postgresql:
+  wal_level: "replica"
+  max_wal_senders: 3
+  wal_keep_size: "1GB"
+  hot_standby: true
+  synchronous_commit: "on"
+
+monitoring:
+  health_check_interval: "30s"
+  auto_promote_on_primary_failure: true
+EOF
+```
+
+## Test Your Installation
+
+Generate your first PostgreSQL HA configuration:
+
+```bash
+# Validate the configuration
+ha-syncgen validate my-cluster.yaml
+
+# Generate the scripts
+ha-syncgen build my-cluster.yaml
+
+# Check the generated output
+ls -la generated/
+```
+
+<Callout type="info">
+  The `generated/` directory contains all the scripts and configuration files needed to set up your PostgreSQL HA cluster.
+</Callout>
+
+## Troubleshooting
+
+### Common Issues
+
+**Command not found: ha-syncgen**
+```bash
+# Check if $GOPATH/bin is in your PATH
+echo $PATH | grep -q "$(go env GOPATH)/bin" || echo "Add $(go env GOPATH)/bin to PATH"
+
+# Add to PATH temporarily
+export PATH=$PATH:$(go env GOPATH)/bin
+
+# Add to PATH permanently
+echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Permission denied**
+```bash
+# Make sure the binary is executable
+chmod +x $(which ha-syncgen)
+```
+
+**Configuration validation errors**
+```bash
+# Check YAML syntax
+yamllint my-cluster.yaml
+
+# Validate with ha-syncgen
+ha-syncgen validate my-cluster.yaml --verbose
+```
+
+### Getting Help
+
+- Check the [Configuration Reference](/docs/configuration) for YAML options
+- Review [Generated Scripts](/docs/generated-scripts) to understand the output
+- See [Troubleshooting](/docs/troubleshooting) for common issues and solutions
+
+## Next Steps
+
+Now that ha-syncgen is installed:
+
+1. [Configure your cluster](/docs/configuration) - Learn all configuration options
+2. [Understand generated scripts](/docs/generated-scripts) - See what gets created
+3. [Troubleshoot issues](/docs/troubleshooting) - Solve common problems
+4. [Check the roadmap](/docs/roadmap) - See what's coming next

@@ -1,0 +1,500 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for ha-syncgen
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+# Troubleshooting
+
+Common issues you might encounter while using ha-syncgen and their solutions.
+
+## Installation Issues
+
+### Command not found: ha-syncgen
+
+**Problem**: After installation, the `ha-syncgen` command is not recognized.
+
+**Solution**:
+```bash
+# Check if $GOPATH/bin is in your PATH
+echo $PATH | grep -q "$(go env GOPATH)/bin" || echo "Add $(go env GOPATH)/bin to PATH"
+
+# Add to PATH temporarily
+export PATH=$PATH:$(go env GOPATH)/bin
+
+# Add to PATH permanently
+echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.bashrc
+source ~/.bashrc
+
+# Verify installation
+ha-syncgen --version
+```
+
+### Permission denied when running ha-syncgen
+
+**Problem**: Permission errors when executing ha-syncgen.
+
+**Solution**:
+```bash
+# Make sure the binary is executable
+chmod +x $(which ha-syncgen)
+
+# If installed manually, check ownership
+ls -la /usr/local/bin/ha-syncgen
+sudo chown $USER:$USER /usr/local/bin/ha-syncgen
+```
+
+### Go installation issues
+
+**Problem**: Go is not installed or wrong version.
+
+**Solution**:
+```bash
+# Check Go version (need 1.23.3+)
+go version
+
+# Install Go if missing (macOS)
+brew install go
+
+# Install Go if missing (Ubuntu/Debian)
+sudo apt-get update
+sudo apt-get install golang-go
+
+# Install Go if missing (CentOS/RHEL)
+sudo yum install go
+```
+
+## Configuration Issues
+
+### YAML syntax errors
+
+**Problem**: Configuration file has invalid YAML syntax.
+
+**Solution**:
+```bash
+# Check YAML syntax with yamllint (if available)
+yamllint cluster.yaml
+
+# Use ha-syncgen validation
+ha-syncgen validate cluster.yaml --verbose
+
+# Common YAML issues to check:
+# - Proper indentation (use spaces, not tabs)
+# - Quoted strings with special characters
+# - Correct list formatting with dashes
+```
+
+### Invalid configuration values
+
+**Problem**: Configuration validation fails with value errors.
+
+**Solution**:
+<Tabs>
+<Tab value="host" label="Invalid Host">
+
+```yaml
+# ❌ Wrong: Using localhost for replicas
+replicas:
+  - host: "localhost"  # This won't work for real replication
+
+# ✅ Correct: Use actual IP addresses
+replicas:
+  - host: "10.0.1.11"
+```
+
+</Tab>
+
+<Tab value="slots" label="Duplicate Slots">
+
+```yaml
+# ❌ Wrong: Duplicate replication slot names
+replicas:
+  - host: "10.0.1.11"
+    replication_slot: "replica_slot_1"
+  - host: "10.0.1.12"
+    replication_slot: "replica_slot_1"  # Duplicate!
+
+# ✅ Correct: Unique slot names
+replicas:
+  - host: "10.0.1.11"
+    replication_slot: "replica_slot_1"
+  - host: "10.0.1.12"
+    replication_slot: "replica_slot_2"
+```
+
+</Tab>
+
+<Tab value="ports" label="Port Conflicts">
+
+```yaml
+# ❌ Wrong: Same host, same port for different roles
+primary:
+  host: "10.0.1.10"
+  port: 5432
+replicas:
+  - host: "10.0.1.10"  # Same host as primary
+    port: 5432         # Same port as primary
+
+# ✅ Correct: Different hosts or different ports
+primary:
+  host: "10.0.1.10"
+  port: 5432
+replicas:
+  - host: "10.0.1.11"  # Different host
+    port: 5432
+```
+
+</Tab>
+</Tabs>
+
+### Missing required fields
+
+**Problem**: Required configuration fields are missing.
+
+**Solution**:
+```yaml
+# Ensure all required fields are present:
+cluster:
+  name: "my-cluster"  # Required
+
+primary:
+  host: "10.0.1.10"                    # Required
+  data_directory: "/var/lib/postgresql/data"  # Required
+  replication_user: "replicator"       # Required
+  replication_password: "password"     # Required
+
+replicas:
+  - host: "10.0.1.11"                  # Required
+    replication_slot: "slot_1"         # Required
+    sync_mode: "async"                 # Required
+```
+
+## Script Generation Issues
+
+### Generated scripts have wrong paths
+
+**Problem**: Generated scripts contain incorrect file paths.
+
+**Solution**:
+```bash
+# Check your data_directory setting in config
+primary:
+  data_directory: "/var/lib/postgresql/data"  # Must match your actual PostgreSQL data dir
+
+# Common PostgreSQL data directories:
+# Ubuntu/Debian: /var/lib/postgresql/14/main
+# CentOS/RHEL: /var/lib/pgsql/14/data
+# Custom installs: varies
+
+# Find your actual data directory:
+sudo -u postgres psql -c "SHOW data_directory;"
+```
+
+### Permission errors in generated scripts
+
+**Problem**: Scripts fail due to permission issues.
+
+**Solution**:
+```bash
+# Ensure scripts are executable
+chmod +x generated/primary/setup_primary.sh
+chmod +x generated/replica-*/setup_replication.sh
+chmod +x generated/replica-*/health_check.sh
+
+# Run scripts with proper user
+sudo -u postgres ./setup_primary.sh
+sudo ./setup_replication.sh  # Needs root for systemctl commands
+```
+
+### Network connectivity issues
+
+**Problem**: Scripts can't connect between servers.
+
+**Solution**:
+```bash
+# Test network connectivity manually
+nc -z primary-host 5432
+telnet replica-host 5432
+
+# Check firewall rules
+sudo ufw status  # Ubuntu
+sudo firewall-cmd --list-all  # CentOS/RHEL
+
+# Common firewall fixes:
+sudo ufw allow 5432/tcp  # Ubuntu
+sudo firewall-cmd --add-port=5432/tcp --permanent  # CentOS/RHEL
+sudo firewall-cmd --reload
+```
+
+## PostgreSQL Issues
+
+### Authentication failures
+
+**Problem**: Replication connections fail with authentication errors.
+
+**Solution**:
+```bash
+# Check if replication user exists
+sudo -u postgres psql -c "\du replicator"
+
+# Recreate replication user if needed
+sudo -u postgres psql -c "
+CREATE ROLE replicator WITH REPLICATION LOGIN PASSWORD 'your_password';
+GRANT CONNECT ON DATABASE postgres TO replicator;
+"
+
+# Check pg_hba.conf entries
+sudo grep replicator /etc/postgresql/14/main/pg_hba.conf
+
+# Reload PostgreSQL config
+sudo systemctl reload postgresql
+```
+
+### WAL sender issues
+
+**Problem**: "too many WAL senders" or replication slot errors.
+
+**Solution**:
+```bash
+# Check current WAL senders
+sudo -u postgres psql -c "SELECT * FROM pg_stat_replication;"
+
+# Check replication slots
+sudo -u postgres psql -c "SELECT * FROM pg_replication_slots;"
+
+# Increase max_wal_senders in postgresql.conf
+echo "max_wal_senders = 5" | sudo tee -a /etc/postgresql/14/main/postgresql.conf
+sudo systemctl restart postgresql
+
+# Drop unused replication slots
+sudo -u postgres psql -c "SELECT pg_drop_replication_slot('unused_slot_name');"
+```
+
+### pg_basebackup failures
+
+**Problem**: Initial replica setup fails during pg_basebackup.
+
+**Solution**:
+```bash
+# Test pg_basebackup manually
+sudo -u postgres pg_basebackup \
+  -h primary-host \
+  -p 5432 \
+  -U replicator \
+  -D /tmp/test_backup \
+  -v -P
+
+# Common issues and fixes:
+# 1. Network connectivity - check firewalls
+# 2. Authentication - verify pg_hba.conf
+# 3. Disk space - ensure enough space on replica
+# 4. Permissions - check data directory ownership
+
+# Check disk space
+df -h /var/lib/postgresql/
+
+# Check directory permissions
+ls -la /var/lib/postgresql/
+sudo chown -R postgres:postgres /var/lib/postgresql/data
+```
+
+## Systemd Service Issues
+
+### Service files not found
+
+**Problem**: Systemd can't find the service files.
+
+**Solution**:
+```bash
+# Copy service files to correct location
+sudo cp generated/replica-*/ha-postgres-health.service /etc/systemd/system/
+sudo cp generated/replica-*/ha-postgres-health.timer /etc/systemd/system/
+
+# Reload systemd daemon
+sudo systemctl daemon-reload
+
+# Check service file syntax
+sudo systemd-analyze verify /etc/systemd/system/ha-postgres-health.service
+```
+
+### Health check service failures
+
+**Problem**: Health check service fails to start or run.
+
+**Solution**:
+```bash
+# Check service status
+sudo systemctl status ha-postgres-health.service
+
+# View service logs
+sudo journalctl -u ha-postgres-health.service -f
+
+# Check script permissions and paths
+ls -la generated/replica-*/health_check.sh
+sudo chmod +x generated/replica-*/health_check.sh
+
+# Test health check script manually
+sudo -u postgres ./generated/replica-*/health_check.sh
+```
+
+### Timer not triggering
+
+**Problem**: Systemd timer is enabled but not running health checks.
+
+**Solution**:
+```bash
+# Check timer status
+sudo systemctl status ha-postgres-health.timer
+sudo systemctl list-timers ha-postgres-health.timer
+
+# Restart timer
+sudo systemctl stop ha-postgres-health.timer
+sudo systemctl start ha-postgres-health.timer
+
+# Check timer logs
+sudo journalctl -u ha-postgres-health.timer -f
+```
+
+## Replication Issues
+
+### Replication lag
+
+**Problem**: Replicas are significantly behind the primary.
+
+**Solution**:
+```bash
+# Check replication status
+sudo -u postgres psql -c "
+SELECT 
+  client_addr,
+  state,
+  pg_wal_lsn_diff(pg_current_wal_lsn(), sent_lsn) AS send_lag,
+  pg_wal_lsn_diff(sent_lsn, flush_lsn) AS flush_lag,
+  pg_wal_lsn_diff(flush_lsn, replay_lsn) AS replay_lag
+FROM pg_stat_replication;
+"
+
+# Check network latency
+ping replica-host
+
+# Increase WAL settings if needed
+echo "wal_keep_size = 2GB" | sudo tee -a /etc/postgresql/14/main/postgresql.conf
+sudo systemctl restart postgresql
+```
+
+### Replica not connecting
+
+**Problem**: Replica server is not connecting to primary.
+
+**Solution**:
+```bash
+# Check replica logs
+sudo tail -f /var/log/postgresql/postgresql-14-main.log
+
+# Verify standby.signal file exists
+ls -la /var/lib/postgresql/data/standby.signal
+
+# Check primary_conninfo in postgresql.auto.conf
+sudo cat /var/lib/postgresql/data/postgresql.auto.conf
+
+# Test manual connection from replica
+sudo -u postgres psql "host=primary-host port=5432 user=replicator dbname=postgres"
+```
+
+## Log Analysis
+
+### Where to find logs
+
+<Tabs>
+<Tab value="system" label="System Logs">
+
+```bash
+# PostgreSQL logs (Ubuntu/Debian)
+sudo tail -f /var/log/postgresql/postgresql-14-main.log
+
+# PostgreSQL logs (CentOS/RHEL)
+sudo tail -f /var/lib/pgsql/14/data/log/postgresql-*.log
+
+# ha-syncgen logs
+sudo tail -f /var/log/ha-syncgen/*.log
+```
+
+</Tab>
+
+<Tab value="systemd" label="Systemd Logs">
+
+```bash
+# Health check service logs
+sudo journalctl -u ha-postgres-health.service -f
+
+# Timer logs
+sudo journalctl -u ha-postgres-health.timer -f
+
+# PostgreSQL service logs
+sudo journalctl -u postgresql -f
+```
+
+</Tab>
+
+<Tab value="replication" label="Replication Logs">
+
+```bash
+# Check replication status
+sudo -u postgres psql -c "SELECT * FROM pg_stat_replication;"
+
+# View WAL sender logs (look for replication entries)
+sudo grep replication /var/log/postgresql/postgresql-14-main.log
+```
+
+</Tab>
+</Tabs>
+
+## Getting Help
+
+If you can't resolve an issue:
+
+1. **Check the logs** - Most issues show up in PostgreSQL or systemd logs
+2. **Validate configuration** - Run `ha-syncgen validate cluster.yaml --verbose`
+3. **Test manually** - Try running generated scripts step by step
+4. **Check GitHub issues** - See if others have reported similar problems
+5. **Create an issue** - Report new bugs with full logs and configuration
+
+<Callout type="info">
+  When reporting issues, always include your configuration file (with passwords redacted) and relevant log output.
+</Callout>
+
+## Common Error Messages
+
+### "FATAL: role 'replicator' does not exist"
+**Solution**: Run the primary setup script to create the replication user.
+
+### "FATAL: replication slot 'slot_name' does not exist"
+**Solution**: Run the primary setup script to create replication slots.
+
+### "FATAL: could not connect to the primary server"
+**Solution**: Check network connectivity and pg_hba.conf configuration.
+
+### "FATAL: database system was interrupted"
+**Solution**: PostgreSQL didn't shut down cleanly. Check for disk space and corruption.
+
+### "ERROR: cannot drop replication slot while it is active"
+**Solution**: Stop the replica before dropping replication slots.
+
+## Performance Optimization
+
+If replication is slow or causing performance issues:
+
+```bash
+# Increase shared_buffers for better performance
+echo "shared_buffers = 512MB" | sudo tee -a /etc/postgresql/14/main/postgresql.conf
+
+# Adjust checkpoint settings
+echo "checkpoint_completion_target = 0.9" | sudo tee -a /etc/postgresql/14/main/postgresql.conf
+
+# Tune network settings for replication
+echo "tcp_keepalives_idle = 600" | sudo tee -a /etc/postgresql/14/main/postgresql.conf
+
+sudo systemctl restart postgresql
+```
