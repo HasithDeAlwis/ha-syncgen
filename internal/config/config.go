@@ -11,12 +11,17 @@ type Primary struct {
 	Host                string `yaml:"host"`
 	Port                int    `yaml:"port"`
 	DataDirectory       string `yaml:"data_directory"`
+	DbName              string `yaml:"db_name"`
+	DbUser              string `yaml:"db_user"`
+	DbPassword          string `yaml:"db_password"`
 	ReplicationUser     string `yaml:"replication_user"`
 	ReplicationPassword string `yaml:"replication_password"`
 }
 
 type Replica struct {
 	Host            string `yaml:"host"`
+	DbUser          string `yaml:"db_user"`
+	DbPassword      string `yaml:"db_password"`
 	Port            int    `yaml:"port"`
 	ReplicationSlot string `yaml:"replication_slot"`
 	SyncMode        string `yaml:"sync_mode"`
