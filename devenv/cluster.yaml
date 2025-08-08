@@ -5,6 +5,9 @@ primary:
   host: 10.0.0.1
   port: 5432
   data_directory: /var/lib/postgresql/data
+  db_name: postgres
+  db_user: postgres
+  db_password: change_this_admin_password
   replication_user: replicator
   replication_password: secure_password_here
 
@@ -13,10 +16,14 @@ replicas:
     port: 5432
     replication_slot: replica_slot_1
     sync_mode: async
+    db_user: postgres
+    db_password: change_this_admin_password
   - host: 10.0.0.3
     port: 5432
     replication_slot: replica_slot_2
     sync_mode: async
+    db_user: postgres
+    db_password: change_this_admin_password
 
 options:
   promote_on_failure: true
@@ -25,3 +32,10 @@ options:
   wal_keep_size: 1GB
   hot_standby: true
   synchronous_commit: on
+
+monitoring:
+  datadog:
+    enabled: true
+    api_key: your_datadog_api_key_here
+    site: datadoghq.com
+    datadog_user_password: change_this_monitoring_password 
