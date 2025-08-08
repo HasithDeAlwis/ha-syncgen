@@ -11,7 +11,7 @@ import (
 func Validate(cfg *Config) error {
 	var errs []error
 
-	errs = append(errs, validatePrimaryConfig(cfg.Primary)...)
+	errs = append(errs, validatePrimaryConfig(&cfg.Primary)...)
 
 	if len(cfg.Replicas) == 0 {
 		errs = append(errs, fmt.Errorf("at least one replica is required"))
@@ -19,12 +19,14 @@ func Validate(cfg *Config) error {
 	replicationSlots := make(map[string]bool)
 	for i := range cfg.Replicas {
 		replica := &cfg.Replicas[i]
-		errs = append(errs, validateReplicaConfig(*replica, replicationSlots, i)...)
+		errs = append(errs, validateReplicaConfig(replica, replicationSlots, i)...)
 	}
 
 	errs = append(errs, validateOptions(&cfg.Options)...)
 
-	errs = append(errs, validateMonitoringConfig(cfg.Monitoring)...)
+	if cfg.Monitoring != nil {
+		errs = append(errs, validateMonitoringConfig(*cfg.Monitoring)...)
+	}
 
 	return errors.Join(errs...)
 }
@@ -80,7 +82,7 @@ func validateOptions(options *Options) []error {
 	return errs
 }
 
-func validateReplicaConfig(replica Replica, replicationSlots map[string]bool, i int) []error {
+func validateReplicaConfig(replica *Replica, replicationSlots map[string]bool, i int) []error {
 	var errs []error
 
 	if replica.Host == "" {
@@ -105,21 +107,23 @@ func validateReplicaConfig(replica Replica, replicationSlots map[string]bool, i 
 	}
 
 	if replica.SyncMode == "" {
-		replica.SyncMode = "async" // Default to async
+		fmt.Printf("Warning: replicas[%d].sync_mode is not set, defaulting to 'async'\n", i)
+		replica.SyncMode = "async"
 	} else if err := validateSyncMode(replica.SyncMode); err != nil {
 		errs = append(errs, fmt.Errorf("replicas[%d].sync_mode: %w", i, err))
 	}
 	return errs
 }
 
-func validatePrimaryConfig(primary Primary) []error {
+func validatePrimaryConfig(primary *Primary) []error {
 	var errs []error
 
 	if primary.Host == "" {
 		errs = append(errs, fmt.Errorf("primary.host is required"))
 	}
+
 	if primary.Port <= 0 {
-		primary.Port = 5432 // Default PostgreSQL port
+		primary.Port = 5432
 	}
 	if primary.DataDirectory == "" {
 		primary.DataDirectory = "/var/lib/postgresql/data" // Default
