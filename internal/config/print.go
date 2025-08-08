@@ -35,10 +35,6 @@ func Print(cfg *Config) {
 	fmt.Printf("  Synchronous Commit: %s\n", cfg.Options.SynchronousCommit)
 	fmt.Printf("  Auto-promote on Primary Failure: %t\n", cfg.Options.PromoteOnFailure)
 
-	if cfg.Options.Observability != "" {
-		fmt.Printf("  Observability: %s\n", cfg.Options.Observability)
-	}
-
 	fmt.Printf("\n=== Configuration Summary ===\n")
 	fmt.Printf("Total nodes: %d (1 primary + %d replicas)\n", 1+len(cfg.Replicas), len(cfg.Replicas))
 	fmt.Printf("Replication type: PostgreSQL Streaming Replication\n")

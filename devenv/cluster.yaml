@@ -38,4 +38,4 @@ monitoring:
     enabled: true
     api_key: your_datadog_api_key_here
     site: datadoghq.com
-    datadog_user_password: change_this_monitoring_password 
+    datadog_user_password: change_this_monitoring_password

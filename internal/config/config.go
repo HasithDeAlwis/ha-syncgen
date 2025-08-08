@@ -29,7 +29,6 @@ type Replica struct {
 
 type Options struct {
 	PromoteOnFailure  bool   `yaml:"promote_on_failure"`
-	Observability     string `yaml:"observability,omitempty"`
 	WalLevel          string `yaml:"wal_level"`
 	MaxWalSenders     int    `yaml:"max_wal_senders"`
 	WalKeepSize       string `yaml:"wal_keep_size"`
@@ -49,10 +48,10 @@ type DatadogConfig struct {
 }
 
 type Config struct {
-	Primary    Primary    `yaml:"primary"`
-	Replicas   []Replica  `yaml:"replicas"`
-	Options    Options    `yaml:"options"`
-	Monitoring Monitoring `yaml:"monitoring"`
+	Primary    Primary     `yaml:"primary"`
+	Replicas   []Replica   `yaml:"replicas"`
+	Options    Options     `yaml:"options"`
+	Monitoring *Monitoring `yaml:"monitoring,omitempty"`
 }
 
 func Parse(filename string) (*Config, error) {

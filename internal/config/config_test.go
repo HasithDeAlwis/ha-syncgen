@@ -21,6 +21,9 @@ func TestParse(t *testing.T) {
   host: 10.0.0.1
   port: 5432
   data_directory: /var/lib/postgresql/data
+  db_name: postgres
+  db_user: postgres
+  db_password: secure_password
   replication_user: replicator
   replication_password: secure_password
 replicas:
@@ -28,6 +31,8 @@ replicas:
     port: 5432
     replication_slot: replica_slot_1
     sync_mode: async
+    db_user: postgres
+    db_password: secure_password
 options:
   promote_on_failure: true
   wal_level: replica
@@ -40,6 +45,9 @@ options:
 					Host:                "10.0.0.1",
 					Port:                5432,
 					DataDirectory:       "/var/lib/postgresql/data",
+					DbName:              "postgres",
+					DbUser:              "postgres",
+					DbPassword:          "secure_password",
 					ReplicationUser:     "replicator",
 					ReplicationPassword: "secure_password",
 				},
@@ -49,6 +57,8 @@ options:
 						Port:            5432,
 						ReplicationSlot: "replica_slot_1",
 						SyncMode:        "async",
+						DbUser:          "postgres",
+						DbPassword:      "secure_password",
 					},
 				},
 				Options: Options{
@@ -68,6 +78,9 @@ options:
   host: 192.168.1.100
   port: 5433
   data_directory: /opt/postgresql/data
+  db_name: postgres
+  db_user: postgres
+  db_password: secret123
   replication_user: repl_user
   replication_password: secret123
 replicas:
@@ -75,18 +88,25 @@ replicas:
     port: 5433
     replication_slot: replica_1
     sync_mode: sync
+    db_user: postgres
+    db_password: secret123
   - host: 192.168.1.102
     port: 5433
     replication_slot: replica_2
     sync_mode: async
+    db_user: postgres
+    db_password: secret123
   - host: 192.168.1.103
     port: 5433
     replication_slot: replica_3
     sync_mode: async
+    db_user: postgres
+    db_password: secret123
 options:
   promote_on_failure: false
   wal_level: logical
   max_wal_senders: 5
+  sync_mode: async
   wal_keep_size: 2GB
   hot_standby: true
   synchronous_commit: remote_apply`,
@@ -95,13 +115,16 @@ options:
 					Host:                "192.168.1.100",
 					Port:                5433,
 					DataDirectory:       "/opt/postgresql/data",
+					DbName:              "postgres",
+					DbUser:              "postgres",
+					DbPassword:          "secret123",
 					ReplicationUser:     "repl_user",
 					ReplicationPassword: "secret123",
 				},
 				Replicas: []Replica{
-					{Host: "192.168.1.101", Port: 5433, ReplicationSlot: "replica_1", SyncMode: "sync"},
-					{Host: "192.168.1.102", Port: 5433, ReplicationSlot: "replica_2", SyncMode: "async"},
-					{Host: "192.168.1.103", Port: 5433, ReplicationSlot: "replica_3", SyncMode: "async"},
+					{Host: "192.168.1.101", Port: 5433, ReplicationSlot: "replica_1", SyncMode: "sync", DbUser: "postgres", DbPassword: "secret123"},
+					{Host: "192.168.1.102", Port: 5433, ReplicationSlot: "replica_2", SyncMode: "async", DbUser: "postgres", DbPassword: "secret123"},
+					{Host: "192.168.1.103", Port: 5433, ReplicationSlot: "replica_3", SyncMode: "async", DbUser: "postgres", DbPassword: "secret123"},
 				},
 				Options: Options{
 					PromoteOnFailure:  false,
@@ -118,16 +141,24 @@ options:
 			name: "config with defaults applied",
 			yaml: `primary:
   host: localhost
+  db_name: postgres
+  db_user: postgres
+  db_password: password
   replication_user: replicator
   replication_password: password
 replicas:
   - host: replica1
-    replication_slot: slot1`,
+    replication_slot: slot1
+    db_user: postgres
+    db_password: password`,
 			want: &Config{
 				Primary: Primary{
 					Host:                "localhost",
 					Port:                5432,
 					DataDirectory:       "/var/lib/postgresql/data",
+					DbName:              "postgres",
+					DbUser:              "postgres",
+					DbPassword:          "password",
 					ReplicationUser:     "replicator",
 					ReplicationPassword: "password",
 				},
@@ -137,6 +168,8 @@ replicas:
 						Port:            5432,
 						ReplicationSlot: "slot1",
 						SyncMode:        "async",
+						DbUser:          "postgres",
+						DbPassword:      "password",
 					},
 				},
 				Options: Options{
@@ -147,6 +180,7 @@ replicas:
 					HotStandby:        false,
 					SynchronousCommit: "on",
 				},
+				Monitoring: nil,
 			},
 			wantErr: false,
 		},
@@ -155,8 +189,9 @@ replicas:
 			yaml: `primary:
   port: 5432
   data_directory: /var/lib/postgresql/data
-  replication_user: replicator
-  replication_password: password
+  db_name: postgres
+  db_user: postgres
+  db_password: password
 replicas:
   - host: replica1
     replication_slot: slot1`,
@@ -169,7 +204,9 @@ replicas:
   host: primary
   port: 5432
   data_directory: /var/lib/postgresql/data
-  replication_password: password
+  db_name: postgres
+  db_user: postgres
+  db_password: password
 replicas:
   - host: replica1
     replication_slot: slot1`,
@@ -182,7 +219,8 @@ replicas:
   host: primary
   port: 5432
   data_directory: /var/lib/postgresql/data
-  replication_user: replicator
+  db_name: postgres
+  db_user: postgres
 replicas:
   - host: replica1
     replication_slot: slot1`,
@@ -284,18 +322,27 @@ replicas:
   host: "测试服务器"
   port: 5432
   data_directory: /var/lib/postgresql/data
+  db_name: postgres
+  db_user: postgres
+  db_password: password
   replication_user: replicator
   replication_password: password
 replicas:
   - host: "副本服务器1"
     port: 5432
     replication_slot: "replica_slot_1"
-    sync_mode: async`,
+    sync_mode: async
+    db_user: postgres
+    db_password: password
+`,
 			want: &Config{
 				Primary: Primary{
 					Host:                "测试服务器",
 					Port:                5432,
 					DataDirectory:       "/var/lib/postgresql/data",
+					DbName:              "postgres",
+					DbUser:              "postgres",
+					DbPassword:          "password",
 					ReplicationUser:     "replicator",
 					ReplicationPassword: "password",
 				},
@@ -305,6 +352,8 @@ replicas:
 						Port:            5432,
 						ReplicationSlot: "replica_slot_1",
 						SyncMode:        "async",
+						DbUser:          "postgres",
+						DbPassword:      "password",
 					},
 				},
 				Options: Options{
@@ -396,8 +445,9 @@ func TestParseFilePermissions(t *testing.T) {
   host: 10.0.0.1
   port: 5432
   data_directory: /var/lib/postgresql/data
-  replication_user: replicator
-  replication_password: password
+  db_name: postgres
+  db_user: postgres
+  db_password: password
 replicas:
   - host: 10.0.0.2
     port: 5432
@@ -540,6 +590,9 @@ func TestYAMLTagsWork(t *testing.T) {
   host: yaml-test-host
   port: 9999
   data_directory: /yaml/test/data
+  db_name: postgres
+  db_user: postgres
+  db_password: yaml_password
   replication_user: yaml_user
   replication_password: yaml_password
 replicas:
@@ -547,6 +600,8 @@ replicas:
     port: 5433
     replication_slot: yaml_slot
     sync_mode: sync
+    db_user: postgres
+    db_password: password
 options:
   promote_on_failure: true
   wal_level: logical
@@ -604,11 +659,17 @@ func TestValidationCases(t *testing.T) {
 			name: "valid minimal config",
 			yaml: `primary:
   host: primary
+  db_name: postgres
+  db_user: postgres
+  db_password: password
   replication_user: replicator
   replication_password: password
 replicas:
   - host: replica1
-    replication_slot: slot1`,
+    replication_slot: slot1
+    sync_mode: async
+    db_user: postgres
+    db_password: password`,
 			wantErr: false,
 		},
 		{
@@ -698,6 +759,107 @@ options:
 
 			if tt.wantErr && !strings.Contains(err.Error(), tt.errMsg) {
 				t.Errorf("Parse() error should contain %q, got: %v", tt.errMsg, err)
+			}
+		})
+	}
+}
+
+func TestMonitoringValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "Datadog enabled, missing fields",
+			yaml: `primary:
+  host: 10.0.0.1
+  port: 5432
+  data_directory: /var/lib/postgresql/data
+  db_name: postgres
+  db_user: postgres
+  db_password: change_this_admin_password
+  replication_user: replicator
+  replication_password: secure_password_here
+
+replicas:
+  - host: 10.0.0.2
+    port: 5432
+    replication_slot: replica_slot_1
+    sync_mode: async
+    db_user: postgres
+    db_password: change_this_admin_password
+
+options:
+  promote_on_failure: true
+  wal_level: replica
+  max_wal_senders: 3
+  wal_keep_size: 1GB
+  hot_standby: true
+  synchronous_commit: on
+
+monitoring:
+  datadog:
+    enabled: true`,
+			wantErr: true,
+			errMsg:  "monitoring.datadog.api_key is required",
+		},
+		{
+			name: "Valid Datadog configuration",
+			yaml: `primary:
+  host: 10.0.0.1
+  port: 5432
+  data_directory: /var/lib/postgresql/data
+  db_name: postgres
+  db_user: postgres
+  db_password: change_this_admin_password
+  replication_user: replicator
+  replication_password: secure_password_here
+
+replicas:
+  - host: 10.0.0.2
+    port: 5432
+    replication_slot: replica_slot_1
+    sync_mode: async
+    db_user: postgres
+    db_password: change_this_admin_password
+
+options:
+  promote_on_failure: true
+  wal_level: replica
+  max_wal_senders: 3
+  wal_keep_size: 1GB
+  hot_standby: true
+  synchronous_commit: on
+
+monitoring:
+  datadog:
+    enabled: true
+    api_key: valid_api_key
+    site: datadoghq.com
+    datadog_user_password: valid_password`,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			tmpFile := filepath.Join(tmpDir, "config.yaml")
+
+			err := os.WriteFile(tmpFile, []byte(tt.yaml), 0644)
+			if err != nil {
+				t.Fatalf("Failed to create test file: %v", err)
+			}
+
+			_, err = Parse(tmpFile)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr && err != nil && !strings.Contains(err.Error(), tt.errMsg) {
+				t.Errorf("Parse() error = %v, expected to contain %v", err, tt.errMsg)
 			}
 		})
 	}
