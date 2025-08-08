@@ -11,84 +11,111 @@ import (
 func Validate(cfg *Config) error {
 	var errs []error
 
-	// Validate primary
-	if cfg.Primary.Host == "" {
-		errs = append(errs, fmt.Errorf("primary.host is required"))
-	}
-	if cfg.Primary.Port <= 0 {
-		cfg.Primary.Port = 5432 // Default PostgreSQL port
-	}
-	if cfg.Primary.DataDirectory == "" {
-		cfg.Primary.DataDirectory = "/var/lib/postgresql/data" // Default
-	}
-	if cfg.Primary.ReplicationUser == "" {
-		errs = append(errs, fmt.Errorf("primary.replication_user is required"))
-	}
-	if cfg.Primary.ReplicationPassword == "" {
-		errs = append(errs, fmt.Errorf("primary.replication_password is required"))
-	}
+	errs = append(errs, validatePrimaryConfig(cfg.Primary)...)
 
-	// Validate replicas
 	if len(cfg.Replicas) == 0 {
 		errs = append(errs, fmt.Errorf("at least one replica is required"))
 	}
-
 	replicationSlots := make(map[string]bool)
 	for i := range cfg.Replicas {
 		replica := &cfg.Replicas[i]
-
-		if replica.Host == "" {
-			errs = append(errs, fmt.Errorf("replicas[%d].host is required", i))
-		}
-		if replica.Port <= 0 {
-			replica.Port = 5432 // Default PostgreSQL port
-		}
-		if replica.ReplicationSlot == "" {
-			errs = append(errs, fmt.Errorf("replicas[%d].replication_slot is required", i))
-		} else {
-			// Check for duplicate replication slots
-			if replicationSlots[replica.ReplicationSlot] {
-				errs = append(errs, fmt.Errorf("replicas[%d].replication_slot '%s' is already used", i, replica.ReplicationSlot))
-			}
-			replicationSlots[replica.ReplicationSlot] = true
-
-			// Validate replication slot name format
-			if err := validateReplicationSlotName(replica.ReplicationSlot); err != nil {
-				errs = append(errs, fmt.Errorf("replicas[%d].replication_slot: %w", i, err))
-			}
-		}
-
-		if replica.SyncMode == "" {
-			replica.SyncMode = "async" // Default to async
-		} else if err := validateSyncMode(replica.SyncMode); err != nil {
-			errs = append(errs, fmt.Errorf("replicas[%d].sync_mode: %w", i, err))
-		}
+		errs = append(errs, validateReplicaConfig(*replica, replicationSlots, i)...)
 	}
 
-	// Validate options with defaults
-	if cfg.Options.WalLevel == "" {
-		cfg.Options.WalLevel = "replica"
-	} else if err := validateWalLevel(cfg.Options.WalLevel); err != nil {
+	errs = append(errs, validateOptions(&cfg.Options)...)
+
+	return errors.Join(errs...)
+}
+
+func validateOptions(options *Options) []error {
+	var errs []error
+
+	if options.WalLevel == "" {
+		options.WalLevel = "replica"
+	} else if err := validateWalLevel(options.WalLevel); err != nil {
 		errs = append(errs, fmt.Errorf("options.wal_level: %w", err))
 	}
 
-	if cfg.Options.MaxWalSenders <= 0 {
-		cfg.Options.MaxWalSenders = 3 // Default
+	if options.MaxWalSenders <= 0 {
+		options.MaxWalSenders = 3 // Default
 	}
 
-	if cfg.Options.WalKeepSize == "" {
-		cfg.Options.WalKeepSize = "1GB"
-	} else if err := validateWalKeepSize(cfg.Options.WalKeepSize); err != nil {
+	if options.WalKeepSize == "" {
+		options.WalKeepSize = "1GB"
+	} else if err := validateWalKeepSize(options.WalKeepSize); err != nil {
 		errs = append(errs, fmt.Errorf("options.wal_keep_size: %w", err))
 	}
 
-	if cfg.Options.SynchronousCommit == "" {
-		cfg.Options.SynchronousCommit = "on"
-	} else if err := validateSynchronousCommit(cfg.Options.SynchronousCommit); err != nil {
+	if options.SynchronousCommit == "" {
+		options.SynchronousCommit = "on"
+	} else if err := validateSynchronousCommit(options.SynchronousCommit); err != nil {
 		errs = append(errs, fmt.Errorf("options.synchronous_commit: %w", err))
 	}
+	return errs
+}
 
-	return errors.Join(errs...)
+func validateReplicaConfig(replica Replica, replicationSlots map[string]bool, i int) []error {
+	var errs []error
+
+	if replica.Host == "" {
+		errs = append(errs, fmt.Errorf("replicas[%d].host is required", i))
+	}
+	if replica.Port <= 0 {
+		replica.Port = 5432 // Default PostgreSQL port
+	}
+	if replica.ReplicationSlot == "" {
+		errs = append(errs, fmt.Errorf("replicas[%d].replication_slot is required", i))
+	} else {
+		// Check for duplicate replication slots
+		if replicationSlots[replica.ReplicationSlot] {
+			errs = append(errs, fmt.Errorf("replicas[%d].replication_slot '%s' is already used", i, replica.ReplicationSlot))
+		}
+		replicationSlots[replica.ReplicationSlot] = true
+
+		// Validate replication slot name format
+		if err := validateReplicationSlotName(replica.ReplicationSlot); err != nil {
+			errs = append(errs, fmt.Errorf("replicas[%d].replication_slot: %w", i, err))
+		}
+	}
+
+	if replica.SyncMode == "" {
+		replica.SyncMode = "async" // Default to async
+	} else if err := validateSyncMode(replica.SyncMode); err != nil {
+		errs = append(errs, fmt.Errorf("replicas[%d].sync_mode: %w", i, err))
+	}
+	return errs
+}
+
+func validatePrimaryConfig(primary Primary) []error {
+	var errs []error
+
+	if primary.Host == "" {
+		errs = append(errs, fmt.Errorf("primary.host is required"))
+	}
+	if primary.Port <= 0 {
+		primary.Port = 5432 // Default PostgreSQL port
+	}
+	if primary.DataDirectory == "" {
+		primary.DataDirectory = "/var/lib/postgresql/data" // Default
+	}
+	if primary.ReplicationUser == "" {
+		errs = append(errs, fmt.Errorf("primary.replication_user is required"))
+	}
+	if primary.ReplicationPassword == "" {
+		errs = append(errs, fmt.Errorf("primary.replication_password is required"))
+	}
+
+	if primary.DbName == "" {
+		errs = append(errs, fmt.Errorf("primary.db_name is required"))
+	}
+	if primary.DbUser == "" {
+		errs = append(errs, fmt.Errorf("primary.db_user is required"))
+	}
+	if primary.DbPassword == "" {
+		errs = append(errs, fmt.Errorf("primary.db_password is required"))
+	}
+
+	return errs
 }
 
 func validateReplicationSlotName(name string) error {
