@@ -30,3 +30,11 @@ ha-syncgen
 docs/node_modules/*
 docs/dist/*
 docs/.next/*
+
+# Terraform
+terraform.tfvars
+.terraform.lock.hcl
+terraform-provider-aws_v5.100.0_x5
+.terraform/*
+terraform.tfstate
+terraform.tfstate.backup
