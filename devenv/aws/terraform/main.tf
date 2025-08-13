@@ -11,103 +11,20 @@ terraform {
 }
 
 provider "aws" {
-  region = var.aws_region
+  region  = "us-east-2"
+  profile = var.ec2_profile
 }
 
-variable "aws_region" {
-  description = "AWS region for deployment"
-  type        = string
-  default     = "us-west-2"
-}
-
-variable "key_pair_name" {
-  description = "AWS Key Pair name for EC2 access"
-  type        = string
-  default     = "ha-syncgen-test"
-}
-
-variable "instance_type" {
-  description = "EC2 instance type"
-  type        = string
-  default     = "t3.micro"  # Free tier eligible
-}
-
-# VPC and Networking
-resource "aws_vpc" "ha_postgres_vpc" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  tags = {
-    Name = "ha-syncgen-test-vpc"
-    Purpose = "Testing PostgreSQL HA with ha-syncgen"
-  }
-}
-
-resource "aws_subnet" "public_subnet" {
-  vpc_id                  = aws_vpc.ha_postgres_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "${var.aws_region}a"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "ha-syncgen-public-subnet"
-  }
-}
-
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.ha_postgres_vpc.id
-
-  tags = {
-    Name = "ha-syncgen-igw"
-  }
-}
-
-resource "aws_route_table" "public_rt" {
-  vpc_id = aws_vpc.ha_postgres_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-
-  tags = {
-    Name = "ha-syncgen-public-rt"
-  }
-}
-
-resource "aws_route_table_association" "public_rta" {
-  subnet_id      = aws_subnet.public_subnet.id
-  route_table_id = aws_route_table.public_rt.id
-}
-
-# Security Group
 resource "aws_security_group" "postgres_sg" {
-  name_prefix = "ha-syncgen-postgres-"
-  vpc_id      = aws_vpc.ha_postgres_vpc.id
+  name        = "postgres_sg"
+  description = "Allow PostgreSQL traffic for ha-syncgen testing"
+  vpc_id      = aws_vpc.main.id
 
-  # SSH access
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # PostgreSQL ports
   ingress {
     from_port   = 5432
-    to_port     = 5435
+    to_port     = 5432
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]  # Only within VPC
-  }
-
-  # Allow your local IP to connect to PostgreSQL (replace with your IP)
-  ingress {
-    from_port   = 5432
-    to_port     = 5435
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Change this to your IP for security
+    cidr_blocks = ["0.0.0.0/0"] # Allow all traffic (not secure for production)
   }
 
   egress {
@@ -122,129 +39,84 @@ resource "aws_security_group" "postgres_sg" {
   }
 }
 
-# User data script to install PostgreSQL
 locals {
-  user_data = base64encode(<<-EOF
-#!/bin/bash
-set -e
+  user_data = <<-EOF
+    #!/bin/bash
+    yum update -y
+    amazon-linux-extras install docker
+  EOF
 
-# Update system
-yum update -y
-
-# Install PostgreSQL 14
-yum install -y postgresql14-server postgresql14 postgresql14-contrib
-
-# Install other tools
-yum install -y git nc
-
-# Initialize PostgreSQL
-/usr/pgsql-14/bin/postgresql-14-setup initdb
-
-# Enable and start PostgreSQL
-systemctl enable postgresql-14
-systemctl start postgresql-14
-
-# Create postgres user password
-sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres123';"
-
-# Create log directory for ha-syncgen
-mkdir -p /var/log/ha-syncgen
-chown postgres:postgres /var/log/ha-syncgen
-
-# Create archive directory
-mkdir -p /var/lib/postgresql/archive
-chown postgres:postgres /var/lib/postgresql/archive
-
-# Install additional tools
-yum install -y wget curl
-
-echo "PostgreSQL setup completed on $(hostname)" > /var/log/setup.log
-EOF
-  )
+  instances = {
+    primary = {
+      role        = "primary",
+      name        = "ha-syncgen-primary",
+      db_user     = "admin",
+      db_password = "admin_password",
+      db_name     = "primary"
+    }
+    replica1 = {
+      role        = "replica",
+      name        = "ha-syncgen-replica-1",
+      db_user     = "replica1_admin",
+      db_password = "replica1_password",
+      db_name     = "replica1"
+    }
+    replica2 = {
+      role        = "replica",
+      name        = "ha-syncgen-replica-2",
+      db_user     = "replica2_admin",
+      db_password = "replica2_password",
+      db_name     = "replica2"
+    }
+  }
 }
 
-# EC2 Instances
-resource "aws_instance" "postgres_primary" {
-  ami                    = "ami-0c02fb55956c7d316"  # Amazon Linux 2 (update as needed)
-  instance_type          = var.instance_type
-  key_name              = var.key_pair_name
-  subnet_id             = aws_subnet.public_subnet.id
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+  tags = {
+    Name = "ha-syncgen-vpc"
+  }
+}
+
+resource "aws_subnet" "public_subnet" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
+  availability_zone       = "us-east-2a"
+}
+
+resource "aws_instance" "ha_syncgen" {
+  for_each = local.instances
+
+  ami                    = "ami-0169aa51f6faf20d5"
+  instance_type          = "t2.micro"
+  key_name               = var.key_pair_name
+  subnet_id              = aws_subnet.public_subnet.id
   vpc_security_group_ids = [aws_security_group.postgres_sg.id]
-  user_data             = local.user_data
+  user_data              = local.user_data
 
   tags = {
-    Name = "ha-syncgen-primary"
-    Role = "primary"
+    Name    = each.value.name
+    Role    = each.value.role
     Purpose = "Testing ha-syncgen PostgreSQL HA"
   }
 }
 
-resource "aws_instance" "postgres_replica_1" {
-  ami                    = "ami-0c02fb55956c7d316"  # Amazon Linux 2
-  instance_type          = var.instance_type
-  key_name              = var.key_pair_name
-  subnet_id             = aws_subnet.public_subnet.id
-  vpc_security_group_ids = [aws_security_group.postgres_sg.id]
-  user_data             = local.user_data
-
-  tags = {
-    Name = "ha-syncgen-replica-1"
-    Role = "replica"
-    Purpose = "Testing ha-syncgen PostgreSQL HA"
-  }
-}
-
-resource "aws_instance" "postgres_replica_2" {
-  ami                    = "ami-0c02fb55956c7d316"  # Amazon Linux 2
-  instance_type          = var.instance_type
-  key_name              = var.key_pair_name
-  subnet_id             = aws_subnet.public_subnet.id
-  vpc_security_group_ids = [aws_security_group.postgres_sg.id]
-  user_data             = local.user_data
-
-  tags = {
-    Name = "ha-syncgen-replica-2"
-    Role = "replica"
-    Purpose = "Testing ha-syncgen PostgreSQL HA"
-  }
-}
-
-# Outputs
-output "primary_public_ip" {
-  value = aws_instance.postgres_primary.public_ip
-  description = "Public IP of the primary PostgreSQL server"
-}
-
-output "primary_private_ip" {
-  value = aws_instance.postgres_primary.private_ip
-  description = "Private IP of the primary PostgreSQL server"
-}
-
-output "replica_1_public_ip" {
-  value = aws_instance.postgres_replica_1.public_ip
-  description = "Public IP of replica 1"
-}
-
-output "replica_1_private_ip" {
-  value = aws_instance.postgres_replica_1.private_ip
-  description = "Private IP of replica 1"
-}
-
-output "replica_2_public_ip" {
-  value = aws_instance.postgres_replica_2.public_ip
-  description = "Public IP of replica 2"
-}
-
-output "replica_2_private_ip" {
-  value = aws_instance.postgres_replica_2.private_ip
-  description = "Private IP of replica 2"
-}
-
-output "ssh_commands" {
+output "instance_details" {
   value = {
-    primary = "ssh -i ~/.ssh/${var.key_pair_name}.pem ec2-user@${aws_instance.postgres_primary.public_ip}"
-    replica_1 = "ssh -i ~/.ssh/${var.key_pair_name}.pem ec2-user@${aws_instance.postgres_replica_1.public_ip}"
-    replica_2 = "ssh -i ~/.ssh/${var.key_pair_name}.pem ec2-user@${aws_instance.postgres_replica_2.public_ip}"
+    for instance, details in aws_instance.ha_syncgen : instance => {
+      ip_address  = details.public_ip,
+      role        = local.instances[instance].role,
+      db_user     = local.instances[instance].db_user,
+      db_password = local.instances[instance].db_password,
+      db_name     = local.instances[instance].db_name
+    }
   }
-  description = "SSH commands to connect to each instance"
+}
+
+output "datadog_details" {
+  value = {
+    api_key = var.datadog_api_key,
+    site    = var.datadog_site
+  }
 }
