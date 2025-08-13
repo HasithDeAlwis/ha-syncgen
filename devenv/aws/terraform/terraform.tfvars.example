@@ -1,0 +1,2 @@
+key_pair_name = "YOUR_KEY_PAIR_NAME"
+ec2_profile   = "YOUR_PROFILE_WITH_EC2_CREATE_ACCESS"
