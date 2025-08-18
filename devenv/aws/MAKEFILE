@@ -1,0 +1,79 @@
+# Simple Makefile for the AWS dev environment
+# Targets:
+#  - aws    : initialize, plan and apply terraform in ./terraform
+#  - config : create configuration files (copies terraform.tfvars.example -> terraform.tfvars)
+#  - clean  : destroy infra (terraform destroy) and remove local terraform state/backups
+
+SHELL := /bin/zsh
+TF_DIR := terraform
+
+.PHONY: help aws config clean init plan apply destroy validate fmt
+
+help: ## Show this help
+	@printf "Available targets:\n";
+	@printf "  %-10s %s\n" "aws"    "Initialize, plan and apply Terraform in ./$(TF_DIR)";
+	@printf "  %-10s %s\n" "config" "Create missing config files (from examples)";
+	@printf "  %-10s %s\n" "clean"  "Destroy infra and wipe local Terraform state/backups";
+	@printf "  %-10s %s\n" "init"   "Run 'terraform init' in ./$(TF_DIR)";
+	@printf "  %-10s %s\n" "plan"   "Run 'terraform plan' in ./$(TF_DIR)";
+	@printf "  %-10s %s\n" "apply"  "Run 'terraform apply' in ./$(TF_DIR)";
+
+## Top-level convenience target: run full flow
+aws: init plan apply
+
+## Ensure terraform is initialized
+init: ## terraform init
+	@echo "-> Initializing Terraform in $(TF_DIR)"
+	@cd $(TF_DIR) && terraform init
+
+plan: ## terraform plan (expects terraform.tfvars present)
+	@echo "-> Running terraform plan"
+	@cd $(TF_DIR) && terraform plan -var-file=terraform.tfvars
+
+apply: ## terraform apply (non-interactive)
+	@echo "-> Applying terraform (this may create cloud resources)"
+	@cd $(TF_DIR) && terraform apply -auto-approve -var-file=terraform.tfvars
+
+## Setup: generate config.yaml then run the central CLI via main.go
+.PHONY: setup
+setup: config ## Generate config (make config) then run repo main.go which invokes the CLI in cmd
+	@echo "-> Running generator (make config) to produce config.yaml"
+	@$(MAKE) config
+	@echo "-> Building syncgen"
+	@cd ../../ && go build
+	@echo "-> Running syncgen validate"
+	@cd ../../ && ./syncgen validate ./devenv/aws/config.yaml
+	@echo "-> Running syncgen generate"
+	@cd ../../ && ./syncgen build ./devenv/aws/config.yaml
+
+destroy: ## terraform destroy (non-interactive)
+	@echo "-> Destroying terraform-managed infrastructure (non-interactive)"
+	@cd $(TF_DIR) && terraform destroy -auto-approve -var-file=terraform.tfvars || true
+
+## Create configuration files from examples if they don't exist
+config: ## If config exists delete it, then run the generator (simple flow)
+	@echo "-> Checking for config.yaml in $(CURDIR)"
+	@if [ -f "config.yaml" ]; then \
+		echo "config.yaml exists in $(CURDIR); removing it"; \
+		rm -f config.yaml; \
+	else \
+		echo "config.yaml not found. Will attempt to generate from terraform state at ./terraform/terraform.tfstate"; \
+	fi; \
+	cd ../.. && go run ./devenv/aws ./devenv/aws/terraform/terraform.tfstate || { echo "Generator failed"; exit 1; }
+
+## Clean: destructive - ask confirmation, attempt destroy, then remove local state & backups
+clean: ## Destroy infra and remove local terraform state/backups
+	@echo "-> CLEAN: this will attempt to destroy infra and remove local terraform state/backups"
+	@read -q "REPLY?Are you sure you want to continue? (y/N) " && echo; \
+	if [ "$$REPLY" != "y" ]; then echo "Aborting clean."; exit 1; fi
+	@if [ -d "$(TF_DIR)" ]; then \
+		cd $(TF_DIR) && terraform destroy -auto-approve -var-file=terraform.tfvars || true; \
+		rm -rf "$(TF_DIR)/.terraform" "$(TF_DIR)/.terraform.lock.hcl" "$(TF_DIR)/terraform.tfstate" "$(TF_DIR)/terraform.tfstate.backup" "$(TF_DIR)/terraform.tfvars" "$(TF_DIR)"/*.backup || true; \
+		echo "Removed local terraform state and related files from $(TF_DIR)"; \
+	else \
+		echo "No $(TF_DIR) directory found; nothing to clean there."; \
+	fi
+	# Optionally remove repo-level generated artifacts if present (keeps it safe by ignoring errors)
+	@echo "-> Removing repo-level generated/ directory if present"
+	@rm -rf ../../generated || true
+	@echo "Clean complete."
