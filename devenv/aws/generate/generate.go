@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"syncgen/internal/config"
 
@@ -132,7 +133,7 @@ func fromJSON(root *TFRoot) (*config.Config, error) {
 	}
 
 	// Collect replicas
-	for _, name := range keys {
+	for i, name := range keys {
 		inst := outs.InstanceDetails.Value[name]
 
 		if strings.EqualFold(inst.Role, "replica") {
@@ -146,7 +147,7 @@ func fromJSON(root *TFRoot) (*config.Config, error) {
 				DbUser:          inst.DbUser,
 				DbPassword:      inst.DbPassword,
 				SyncMode:        "async",
-				ReplicationSlot: "replica_slot",
+				ReplicationSlot: "replica_slot_" + strconv.Itoa(i),
 			}
 			cfg.Replicas = append(cfg.Replicas, rep)
 		}
@@ -225,7 +226,6 @@ func ParseTFOutputsFile(filepath string) (string, error) {
 		return "", fmt.Errorf("failed to read file: %v", readFileErr)
 	}
 
-	fmt.Println(string(fileData))
 	cfg, parseJSONErr := parseJSON(fileData)
 	if parseJSONErr != nil {
 		return "", fmt.Errorf("failed to parse JSON: %v", parseJSONErr)
