@@ -104,8 +104,8 @@ resource "aws_instance" "ha_syncgen" {
 
 output "instance_details" {
   value = {
-    for instance, details in aws_instance.ha_syncgen : instance => {
-      ip_address  = details.public_ip,
+    for instance in sort(keys(aws_instance.ha_syncgen)) : instance => {
+      ip_address  = aws_instance.ha_syncgen[instance].public_ip,
       role        = local.instances[instance].role,
       db_user     = local.instances[instance].db_user,
       db_password = local.instances[instance].db_password,
