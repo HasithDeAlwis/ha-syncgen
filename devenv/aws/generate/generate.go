@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"syncgen/internal/config"
+
+	yaml "gopkg.in/yaml.v3"
 )
 
 type DatadogValue struct {
@@ -117,6 +121,7 @@ func fromJSON(root *TFRoot) (*config.Config, error) {
 				DbPassword:          inst.DbPassword,
 				ReplicationUser:     "primary_replica_user",
 				ReplicationPassword: "replica_user_password",
+				DataDirectory:       "/var/lib/postgresql/data/primary",
 			}
 			foundPrimary = true
 			break
@@ -172,7 +177,7 @@ func fromJSON(root *TFRoot) (*config.Config, error) {
 	return cfg, nil
 }
 
-func ParseJSON(input []byte) (*config.Config, error) {
+func parseJSON(input []byte) (*config.Config, error) {
 	var root TFRoot
 	if err := json.Unmarshal(input, &root); err != nil {
 		return nil, err
@@ -181,6 +186,60 @@ func ParseJSON(input []byte) (*config.Config, error) {
 	return fromJSON(&root)
 }
 
-func GenerateYaml(config *config.Config) (string, error) {
-	return "", nil
+func writeRelativeToSource(rel string, data []byte, perm os.FileMode) (string, error) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("unable to get caller information")
+	}
+
+	absPath, err := filepath.Abs(filename)
+	target := filepath.Join(filepath.Dir(absPath), rel)
+
+	if err != nil {
+		return "", err
+	}
+
+	if err := os.WriteFile(target, data, perm); err != nil {
+		return "", err
+	}
+
+	return target, nil
+}
+
+func generateYAML(cfg *config.Config) ([]byte, error) {
+	if cfg == nil {
+		return []byte(""), fmt.Errorf("nil config provided")
+	}
+
+	out, err := yaml.Marshal(cfg)
+	if err != nil {
+		return []byte(""), err
+	}
+
+	return out, nil
+}
+
+func ParseTFOutputsFile(filepath string) (string, error) {
+	fileData, readFileErr := readFile(filepath)
+	if readFileErr != nil {
+		return "", fmt.Errorf("failed to read file: %v", readFileErr)
+	}
+
+	fmt.Println(string(fileData))
+	cfg, parseJSONErr := parseJSON(fileData)
+	if parseJSONErr != nil {
+		return "", fmt.Errorf("failed to parse JSON: %v", parseJSONErr)
+	}
+
+	yaml, generateYAMLErr := generateYAML(cfg)
+	if generateYAMLErr != nil {
+		return "", fmt.Errorf("failed to generate YAML: %v", generateYAMLErr)
+	}
+
+	absPath, writeToFileErr := writeRelativeToSource("../config.yaml", yaml, 0644)
+	if writeToFileErr != nil {
+		return "", fmt.Errorf("failed to write YAML file: %v", writeToFileErr)
+	}
+
+	return absPath, nil
 }
