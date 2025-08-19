@@ -45,7 +45,6 @@ type TFRoot struct {
 	Outputs *Outputs `json:"outputs,omitempty"`
 }
 
-// PrintTFRoot prints the TFRoot struct in a pretty JSON format.
 func PrintTFRoot(root *TFRoot) {
 	if root == nil {
 		fmt.Println("TFRoot is nil")
@@ -74,7 +73,7 @@ func readFile(filePath string) ([]byte, error) {
 	return data, nil
 }
 
-func fromJSON(root *TFRoot) (*config.Config, error) {
+func fromTFRoot(root *TFRoot) (*config.Config, error) {
 	// Validate root and outputs presence
 	if root == nil || root.Outputs == nil {
 		return nil, fmt.Errorf("invalid JSON configuration generated during Terraform creation")
@@ -184,27 +183,36 @@ func parseJSON(input []byte) (*config.Config, error) {
 		return nil, err
 	}
 
-	return fromJSON(&root)
+	return fromTFRoot(&root)
 }
 
-func writeRelativeToSource(rel string, data []byte, perm os.FileMode) (string, error) {
-	_, filename, _, ok := runtime.Caller(0)
+func writeToGeneratedDir(filename string, data []byte, perm os.FileMode) (string, error) {
+	_, sourceFile, _, ok := runtime.Caller(0)
 	if !ok {
 		return "", fmt.Errorf("unable to get caller information")
 	}
 
-	absPath, err := filepath.Abs(filename)
-	target := filepath.Join(filepath.Dir(absPath), rel)
-
+	// Go up from generate/terraform.go to aws/, then into generated/
+	absPath, err := filepath.Abs(sourceFile)
 	if err != nil {
 		return "", err
 	}
 
-	if err := os.WriteFile(target, data, perm); err != nil {
+	generateDir := filepath.Dir(absPath) // generate/
+	awsDir := filepath.Dir(generateDir)  // aws/
+	generatedDir := filepath.Join(awsDir, "generated")
+	targetFile := filepath.Join(generatedDir, filename)
+
+	// Ensure generated directory exists
+	if err := os.MkdirAll(generatedDir, 0755); err != nil {
 		return "", err
 	}
 
-	return target, nil
+	if err := os.WriteFile(targetFile, data, perm); err != nil {
+		return "", err
+	}
+
+	return targetFile, nil
 }
 
 func generateYAML(cfg *config.Config) ([]byte, error) {
@@ -220,26 +228,59 @@ func generateYAML(cfg *config.Config) ([]byte, error) {
 	return out, nil
 }
 
-func ParseTFOutputsFile(filepath string) (string, error) {
+func ParseTFOutputsToConfig(filepath string) (*config.Config, error) {
 	fileData, readFileErr := readFile(filepath)
 	if readFileErr != nil {
-		return "", fmt.Errorf("failed to read file: %v", readFileErr)
+		return nil, fmt.Errorf("failed to read file: %v", readFileErr)
 	}
 
-	cfg, parseJSONErr := parseJSON(fileData)
-	if parseJSONErr != nil {
-		return "", fmt.Errorf("failed to parse JSON: %v", parseJSONErr)
+	cfg, parsedJSONErr := parseJSON(fileData)
+	if parsedJSONErr != nil {
+		return nil, fmt.Errorf("failed to parse wrapped format: %v", parsedJSONErr)
 	}
 
+	return cfg, nil
+}
+
+func SaveConfigYAML(cfg *config.Config) error {
 	yaml, generateYAMLErr := generateYAML(cfg)
 	if generateYAMLErr != nil {
-		return "", fmt.Errorf("failed to generate YAML: %v", generateYAMLErr)
+		return fmt.Errorf("failed to generate YAML: %v", generateYAMLErr)
 	}
 
-	absPath, writeToFileErr := writeRelativeToSource("../config.yaml", yaml, 0644)
+	_, writeToFileErr := writeToGeneratedDir("config.yaml", yaml, 0644)
 	if writeToFileErr != nil {
-		return "", fmt.Errorf("failed to write YAML file: %v", writeToFileErr)
+		return fmt.Errorf("failed to write YAML file: %v", writeToFileErr)
 	}
 
-	return absPath, nil
+	return nil
+}
+
+func LoadConfigFromGenerated() (*config.Config, error) {
+	_, sourceFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return nil, fmt.Errorf("unable to get caller information")
+	}
+
+	// Navigate to generated/config.yaml
+	absPath, err := filepath.Abs(sourceFile)
+	if err != nil {
+		return nil, err
+	}
+
+	generateDir := filepath.Dir(absPath)
+	awsDir := filepath.Dir(generateDir)
+	configFile := filepath.Join(awsDir, "generated", "config.yaml")
+
+	data, err := readFile(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file %s: %v", configFile, err)
+	}
+
+	var cfg config.Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML config: %v", err)
+	}
+
+	return &cfg, nil
 }
