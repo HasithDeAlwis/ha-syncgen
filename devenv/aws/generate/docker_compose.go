@@ -20,6 +20,7 @@ type DockerComposeData struct {
 	WalKeepSize       string
 	HotStandby        string
 	SynchronousCommit string
+	Datadirectory     string
 }
 
 // generateDockerComposeDir creates the full directory path for a given server type
@@ -78,6 +79,7 @@ func writeDockerComposeFile(tmpl *template.Template, cfg *config.Config, file *o
 		WalKeepSize:       cfg.Options.WalKeepSize,
 		HotStandby:        boolToString(cfg.Options.HotStandby),
 		SynchronousCommit: cfg.Options.SynchronousCommit,
+		Datadirectory:     cfg.Primary.DataDirectory,
 	}
 	if err := tmpl.Execute(file, data); err != nil {
 		return fmt.Errorf("failed to execute template: %v", err)
@@ -129,6 +131,7 @@ func GenerateReplicaDockerCompose(cfg *config.Config) error {
 		replicaCfg := *cfg // shallow copy
 		replicaCfg.Primary.DbUser = replica.DbUser
 		replicaCfg.Primary.DbPassword = replica.DbPassword
+		replicaCfg.Primary.DataDirectory = cfg.Primary.DataDirectory
 
 		// Create output directory
 		outputDir, err := generateDockerComposeDir(replicaName)

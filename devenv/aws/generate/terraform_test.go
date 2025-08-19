@@ -1,11 +1,94 @@
 package generate
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
 	"syncgen/internal/config"
+
+	"gopkg.in/yaml.v3"
 )
+
+func TestGenerateYAML_ValidConfig(t *testing.T) {
+	cfg := &config.Config{
+		Primary: config.Primary{
+			Host:                "127.0.0.1",
+			Port:                5432,
+			DbName:              "testdb",
+			DbUser:              "user",
+			DbPassword:          "pass",
+			ReplicationUser:     "repl_user",
+			ReplicationPassword: "repl_pass",
+			DataDirectory:       "/data/primary",
+		},
+		Replicas: []config.Replica{
+			{
+				Host:            "127.0.0.2",
+				Port:            5432,
+				DbUser:          "repl1",
+				DbPassword:      "repl1pass",
+				SyncMode:        "async",
+				ReplicationSlot: "slot1",
+			},
+		},
+		Options: config.Options{
+			PromoteOnFailure:  true,
+			WalLevel:          "replica",
+			MaxWalSenders:     3,
+			WalKeepSize:       "1GB",
+			HotStandby:        true,
+			SynchronousCommit: "on",
+		},
+		Monitoring: &config.Monitoring{
+			Datadog: config.DatadogConfig{
+				Enabled:             true,
+				ApiKey:              "apikey",
+				Site:                "datadoghq.com",
+				DatadogUserPassword: "pass",
+			},
+		},
+	}
+
+	yamlBytes, err := generateYAML(cfg)
+	if err != nil {
+		t.Fatalf("generateYAML returned error: %v", err)
+	}
+	if len(yamlBytes) == 0 {
+		t.Error("generateYAML returned empty YAML")
+	}
+
+	// Unmarshal and compare
+	var got config.Config
+	if err := yaml.Unmarshal(yamlBytes, &got); err != nil {
+		t.Fatalf("YAML unmarshal failed: %v", err)
+	}
+	if !reflect.DeepEqual(cfg, &got) {
+		t.Errorf("YAML roundtrip mismatch.\nGot: %+v\nWant: %+v", got, *cfg)
+	}
+}
+
+func TestGenerateYAML_NilConfig(t *testing.T) {
+	yamlBytes, err := generateYAML(nil)
+	if err == nil {
+		t.Error("Expected error for nil config, got nil")
+	}
+	if string(yamlBytes) != "" {
+		t.Errorf("Expected empty output for nil config, got: %q", string(yamlBytes))
+	}
+}
+
+func TestGenerateYAML_EmptyConfig(t *testing.T) {
+	cfg := &config.Config{}
+	yamlBytes, err := generateYAML(cfg)
+	if err != nil {
+		t.Fatalf("generateYAML returned error for empty config: %v", err)
+	}
+	if len(yamlBytes) == 0 {
+		t.Error("generateYAML returned empty YAML for empty config")
+	}
+}
 
 func TestParseJSON_Valid(t *testing.T) {
 	tests := []struct {
@@ -215,5 +298,39 @@ func TestParseJSON_InvalidFieldValues(t *testing.T) {
 	_, err := parseJSON(invalidValue)
 	if err == nil {
 		t.Error("Expected error for invalid field values, got nil")
+	}
+}
+func TestWriteToGeneratedDir_CreatesFileAndWritesData(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := "testfile.txt"
+	testData := []byte("test content")
+	testPerm := os.FileMode(0600)
+
+	genDir := filepath.Join(tmpDir, "generate")
+	os.MkdirAll(genDir, 0755)
+	tfFile := filepath.Join(genDir, "terraform.go")
+	os.WriteFile(tfFile, []byte("// dummy"), 0644)
+
+	path, err := writeToGeneratedDir(testFile, testData, testPerm)
+	if err != nil {
+		t.Fatalf("writeToGeneratedDir returned error: %v", err)
+	}
+
+	// Check file exists and contents are correct
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read written file: %v", err)
+	}
+	if string(got) != string(testData) {
+		t.Errorf("file contents = %q, want %q", got, testData)
+	}
+
+	// Check file permissions
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("failed to stat file: %v", err)
+	}
+	if info.Mode().Perm() != testPerm {
+		t.Errorf("file permissions = %v, want %v", info.Mode().Perm(), testPerm)
 	}
 }
