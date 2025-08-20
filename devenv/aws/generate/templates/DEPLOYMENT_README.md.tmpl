@@ -1,0 +1,51 @@
+# High Availability Database Deployment
+
+## Directory Structure
+
+```
+.
+├── config.yaml
+├── primary/
+│   ├── docker-compose.yml
+│   └── init-scripts/
+│       └── 01-setup-primary.sql
+├── replica/ # there are multiple replicas
+│   ├── docker-compose.yml
+│   └── init-scripts/
+│       └── 01-setup-replica.sql
+├── deploy-to-servers.sh
+├── deploy-databases.sh
+└── DEPLOYMENT_README.md
+```
+
+- **config.yaml**: Cluster configuration
+- **primary/**: Primary node setup
+- **replica/**: Replica node setups
+- **deploy-to-servers.sh**: SSH/SCP automation script
+- **deploy-databases.sh**: Main orchestration script
+
+## Before Deployment
+
+1. **Update SSH Key Path**: Edit the SSH_KEY_PATH in deploy-to-servers.sh  
+   - Current: {{ .SSHKeyPath }}  
+   - Update to your actual key path
+
+2. **Verify Server Access**: Test SSH connectivity:
+   ```bash
+   ./deploy-to-servers.sh --dry-run
+   ```
+
+## Deploy
+
+Run the complete deployment:
+```bash
+./deploy-databases.sh
+```
+
+## Connection Details
+
+After successful deployment:
+- **Primary**: {{ .PrimaryIP }}:5432 (user: {{ .PrimaryUser }}, database: {{ .PrimaryDBName }})
+{{- range $replica := .Replicas }}
+- **Replica**: {{ $replica.IP }}:5432 (user: {{ $replica.User }}, database: {{ $.PrimaryDBName }})
+{{- end }}

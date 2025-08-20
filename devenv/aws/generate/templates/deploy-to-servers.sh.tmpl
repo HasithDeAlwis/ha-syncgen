@@ -1,0 +1,245 @@
+#!/bin/bash
+
+# Complete SSH/SCP automation for PostgreSQL deployment
+# Generated from config.yaml
+
+set -e  # Exit on any error
+
+SSH_KEY_PATH="{{.SSHKeyPath}}"
+SSH_USER="{{.SSHUser}}"
+GENERATED_DIR="./generated"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Function to test SSH connectivity
+test_ssh_connection() {
+    local host=$1
+    log_info "Testing SSH connection to $host..."
+    
+    if ssh -i $SSH_KEY_PATH -o ConnectTimeout=5 -o StrictHostKeyChecking=no $SSH_USER@$host "echo 'SSH OK'" > /dev/null 2>&1; then
+        log_info "✅ SSH connection to $host successful"
+        return 0
+    else
+        log_error "❌ SSH connection to $host failed"
+        return 1
+    fi
+}
+
+# Function to install Docker on remote server
+install_docker_remote() {
+    local host=$1
+    log_info "Installing Docker on $host..."
+    
+    ssh -i $SSH_KEY_PATH $SSH_USER@$host << 'EOF'
+        # Install Docker if not already installed
+        if ! command -v docker &> /dev/null; then
+            echo "Installing Docker..."
+            sudo yum update -y
+            sudo yum install -y docker
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            sudo usermod -a -G docker ec2-user
+            
+            # Need to restart session for group changes
+            echo "Docker installed. You may need to reconnect for group changes to take effect."
+        else
+            echo "Docker already installed"
+        fi
+        
+        # Install Docker Compose if not already installed
+        if ! command -v docker-compose &> /dev/null; then
+            echo "Installing Docker Compose..."
+            sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+        else
+            echo "Docker Compose already installed"
+        fi
+EOF
+    
+    if [ $? -eq 0 ]; then
+        log_info "✅ Docker installation completed on $host"
+    else
+        log_error "❌ Docker installation failed on $host"
+        return 1
+    fi
+}
+
+# Function to deploy to primary server
+deploy_primary() {
+    local host="{{.PrimaryIP}}"
+    log_info "Deploying primary database to $host..."
+    
+    # Create remote directory
+    ssh -i $SSH_KEY_PATH $SSH_USER@$host "mkdir -p ~/postgres-primary/init-scripts"
+    
+    # Copy files
+    scp -i $SSH_KEY_PATH $GENERATED_DIR/primary/docker-compose.yml $SSH_USER@$host:~/postgres-primary/
+    scp -i $SSH_KEY_PATH $GENERATED_DIR/primary/init-scripts/* $SSH_USER@$host:~/postgres-primary/init-scripts/
+    
+    # Deploy and start
+    ssh -i $SSH_KEY_PATH $SSH_USER@$host << 'EOF'
+        cd ~/postgres-primary
+        echo "Stopping any existing containers..."
+        docker-compose down || true
+        echo "Starting primary PostgreSQL..."
+        docker-compose up -d
+        echo "Waiting for PostgreSQL to start..."
+        sleep 15
+        echo "Checking PostgreSQL status..."
+        docker-compose ps
+EOF
+    
+    if [ $? -eq 0 ]; then
+        log_info "✅ Primary database deployed successfully on $host"
+    else
+        log_error "❌ Primary database deployment failed on $host"
+        return 1
+    fi
+}
+
+{{range $i, $replica := .Replicas}}
+# Function to deploy to {{$replica.Name}} server
+deploy_{{$replica.Name}}() {
+    local host="{{$replica.IP}}"
+    log_info "Deploying {{$replica.Name}} database to $host..."
+    
+    # Create remote directory
+    ssh -i $SSH_KEY_PATH $SSH_USER@$host "mkdir -p ~/postgres-replica/init-scripts"
+    
+    # Copy files
+    scp -i $SSH_KEY_PATH $GENERATED_DIR/{{$replica.Name}}/docker-compose.yml $SSH_USER@$host:~/postgres-replica/
+    scp -i $SSH_KEY_PATH $GENERATED_DIR/{{$replica.Name}}/init-scripts/* $SSH_USER@$host:~/postgres-replica/init-scripts/
+    
+    # Deploy and start
+    ssh -i $SSH_KEY_PATH $SSH_USER@$host << 'EOF'
+        cd ~/postgres-replica
+        echo "Stopping any existing containers..."
+        docker-compose down || true
+        echo "Starting {{$replica.Name}} PostgreSQL..."
+        docker-compose up -d
+        echo "Waiting for PostgreSQL to start..."
+        sleep 15
+        echo "Checking PostgreSQL status..."
+        docker-compose ps
+EOF
+    
+    if [ $? -eq 0 ]; then
+        log_info "✅ {{$replica.Name}} database deployed successfully on $host"
+    else
+        log_error "❌ {{$replica.Name}} database deployment failed on $host"
+        return 1
+    fi
+}
+{{end}}
+
+# Function to validate database connectivity
+validate_deployment() {
+    local host=$1
+    local db_user=$2
+    local db_password=$3
+    local db_name=$4
+    
+    log_info "Validating database connectivity on $host..."
+    
+    # Test database connection
+    ssh -i $SSH_KEY_PATH $SSH_USER@$host "docker exec \$(docker ps -q) psql -h localhost -U $db_user -d $db_name -c 'SELECT version();'" > /dev/null 2>&1
+    
+    if [ $? -eq 0 ]; then
+        log_info "✅ Database connectivity validated on $host"
+        return 0
+    else
+        log_warn "⚠️  Database connectivity test failed on $host (this might be normal if still starting)"
+        return 1
+    fi
+}
+
+# Main deployment function
+main() {
+    log_info "🚀 Starting automated PostgreSQL deployment..."
+    
+    # Check prerequisites
+    if [ ! -f "$SSH_KEY_PATH" ]; then
+        log_error "SSH key not found at $SSH_KEY_PATH"
+        log_info "Please update SSH_KEY_PATH in this script or create the key file"
+        exit 1
+    fi
+    
+    if [ ! -d "$GENERATED_DIR" ]; then
+        log_error "Generated files directory not found at $GENERATED_DIR"
+        log_info "Please run the generation script first: go run main.go generate-deployment"
+        exit 1
+    fi
+    
+    # Test SSH connectivity to all servers
+    log_info "Testing SSH connectivity to all servers..."
+    test_ssh_connection "{{.PrimaryIP}}" || exit 1
+    
+    {{range .Replicas}}
+    test_ssh_connection "{{.IP}}" || exit 1
+    {{end}}
+    
+    # Install Docker on all servers
+    log_info "Installing Docker on all servers..."
+    install_docker_remote "{{.PrimaryIP}}"
+    
+    {{range .Replicas}}
+    install_docker_remote "{{.IP}}"
+    {{end}}
+    
+    # Deploy primary database
+    deploy_primary
+    
+    # Deploy replica databases
+    {{range .Replicas}}
+    deploy_{{.Name}}
+    {{end}}
+    
+    # Wait a bit for all databases to fully start
+    log_info "Waiting for all databases to fully initialize..."
+    sleep 30
+    
+    # Validate deployments
+    log_info "Validating all deployments..."
+    
+    validate_deployment "{{.PrimaryIP}}" "{{.PrimaryUser}}" "{{.PrimaryPassword}}" "{{.PrimaryDBName}}"
+    
+    {{range .Replicas}}
+    validate_deployment "{{.IP}}" "{{.User}}" "{{.Password}}" "{{$.PrimaryDBName}}"
+    {{end}}
+    
+    log_info "🎉 Deployment completed!"
+    log_info ""
+    log_info "Connection details:"
+    log_info "Primary: {{.PrimaryIP}}:5432 (user: {{.PrimaryUser}})"
+    {{range .Replicas}}
+    log_info "{{.Name}}: {{.IP}}:5432 (user: {{.User}})"
+    {{end}}
+}
+
+# Script entry point
+if [ "$1" = "--dry-run" ]; then
+    log_info "Dry run mode - testing SSH connectivity only"
+    test_ssh_connection "{{.PrimaryIP}}"
+    {{range .Replicas}}
+    test_ssh_connection "{{.IP}}"
+    {{end}}
+    exit 0
+fi
+
+main "$@"
