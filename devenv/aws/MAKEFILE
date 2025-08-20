@@ -94,7 +94,7 @@ init: ## terraform init
 
 plan: ## terraform plan (expects terraform.tfvars present)
 	@echo "-> Running terraform plan"
-	@cd $(TF_DIR) && terraform plan -var-file=terraform.tfvars
+	@cd $(TF_DIR) && terraform plan -out -var-file=terraform.tfvars
 
 apply: ## terraform apply (non-interactive)
 	@echo "-> Applying terraform (this may create cloud resources)"
@@ -112,14 +112,21 @@ clean: ## Destroy infra and remove local terraform state/backups
 	@echo "-> Destroying infrastructure"
 	@$(MAKE) destroy || true
 	@echo "-> Cleaning local terraform state"
+	@echo "-> $(TF_DIR)"
 	@if [ -d "$(TF_DIR)" ]; then \
-		rm -rf "$(TF_DIR)/.terraform" "$(TF_DIR)/.terraform.lock.hcl" "$(TF_DIR)/terraform.tfstate" "$(TF_DIR)/terraform.tfstate.backup" "$(TF_DIR)/terraform.tfvars" "$(TF_DIR)"/*.backup || true; \
+		rm -rf "$(TF_DIR)/.terraf" "$(TF_DIR)/.terraform.lock.hcl" "$(TF_DIR)/terraform.tfstate" "$(TF_DIR)/terraform.tfstate.backup" "$(TF_DIR)"/*.backup || true; \
 		echo "Removed local terraform state and related files from $(TF_DIR)"; \
 	fi
 	@echo "-> Cleaning generated files"
 	@rm -rf generated/ || true
 	@rm -rf ../../generated || true
-	@echo "✅ Clean complete"
+	@echo "✅ Cleaned generated files"
+	@read -q "REPLY?Do you want to delete your terraform variables? (y/N) " && echo; \
+	if [ "$$REPLY" != "y" ]; then echo "✅ Cleaned Terraform infrastructure"; exit 1; fi
+	@echo "-> Cleaning terraform variables"
+	@rm -f "$(TF_DIR)/terraform.tfvars"
+	@echo "✅ Deleted terraform variables"
+	@echo "✅ Full clean complete"
 
 ## Legacy targets (backward compatibility)
 config: scripts ## Legacy: generate config (now generates all scripts)
