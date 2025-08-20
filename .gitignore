@@ -2,6 +2,7 @@
 /syncgen
 syncgen.exe
 dist/
+.env
 
 # Generated output
 generated/
