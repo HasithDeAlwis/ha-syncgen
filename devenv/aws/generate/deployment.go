@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"text/template"
 
+	"github.com/joho/godotenv"
+
 	"syncgen/internal/config"
 )
 
@@ -69,17 +71,29 @@ func generateDeploymentDir() (string, error) {
 	return generatedDir, nil
 }
 
-func prepareDeploymentData(cfg *config.Config) DeploymentData {
+func prepareDeploymentData(cfg *config.Config) (DeploymentData, error) {
+	// godotenv.Load() should have already been called in GenerateDeploymentScripts
+
+	sshUser, okUser := os.LookupEnv("SSH_USER")
+	sshKeyPath, okKey := os.LookupEnv("SSH_KEY_PATH")
+
+	if !okKey || sshKeyPath == "" {
+		return DeploymentData{}, fmt.Errorf("ssh_key_path variable is not set in your .env file")
+	}
+
+	if !okUser || sshUser == "" {
+		sshUser = "ec2-user"
+	}
+
 	deployData := DeploymentData{
 		PrimaryIP:       cfg.Primary.Host,
 		PrimaryUser:     cfg.Primary.DbUser,
 		PrimaryPassword: cfg.Primary.DbPassword,
 		PrimaryDBName:   cfg.Primary.DbName,
-		SSHKeyPath:      "$HOME/.ssh/your-aws-key.pem",
-		SSHUser:         "ec2-user",
+		SSHKeyPath:      sshKeyPath,
+		SSHUser:         sshUser,
 	}
 
-	// Add replica data
 	for i, replica := range cfg.Replicas {
 		replicaData := ReplicaDeploymentData{
 			IP:       replica.Host,
@@ -89,7 +103,7 @@ func prepareDeploymentData(cfg *config.Config) DeploymentData {
 		}
 		deployData.Replicas = append(deployData.Replicas, replicaData)
 	}
-	return deployData
+	return deployData, nil
 }
 
 func generateAndWriteScript(outputDir string, outputFileName string, templateName string, data DeploymentData) error {
@@ -110,9 +124,15 @@ func generateAndWriteScript(outputDir string, outputFileName string, templateNam
 }
 
 func GenerateDeploymentScripts(cfg *config.Config) error {
+	// Load .env file if present
+	_ = godotenv.Load("../../.env")
+
 	fmt.Println("🔧 Generating deployment scripts...")
 
-	deployData := prepareDeploymentData(cfg)
+	deployData, err := prepareDeploymentData(cfg)
+	if err != nil {
+		return err
+	}
 	// Get output directory
 	outputDir, err := generateDeploymentDir()
 	if err != nil {
