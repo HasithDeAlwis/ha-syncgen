@@ -1,9 +1,6 @@
 -- PostgreSQL Replica Database Initialization
 -- Generated from config.yaml
 
--- Create replica admin user
-CREATE USER {{.DbUser}} WITH PASSWORD '{{.DbPassword}}' SUPERUSER;
-
 -- Create monitoring user for Datadog
 CREATE USER datadog_user WITH PASSWORD '{{.DatadogPassword}}';
 
