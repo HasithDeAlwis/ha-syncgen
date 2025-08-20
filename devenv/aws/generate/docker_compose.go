@@ -47,7 +47,6 @@ func generateDockerComposeDir(serverType string) (string, error) {
 	return generatedDir, nil
 }
 
-// loadDockerComposeTemplate loads a template file from the templates directory
 func loadDockerComposeTemplate(templateName string) (*template.Template, error) {
 	_, sourceFile, _, ok := runtime.Caller(0)
 	if !ok {
@@ -101,12 +100,13 @@ func GeneratePrimaryDockerCompose(cfg *config.Config) error {
 	}
 	outputFile := filepath.Join(outputDir, "docker-compose.yml")
 	file, err := os.Create(outputFile)
-	defer file.Close()
 
 	// Prepare template data
 	if err := writeDockerComposeFile(tmpl, cfg, file); err != nil {
 		return err
 	}
+
+	defer file.Close()
 
 	if err != nil {
 		return fmt.Errorf("failed to create primary docker-compose file: %v", err)
