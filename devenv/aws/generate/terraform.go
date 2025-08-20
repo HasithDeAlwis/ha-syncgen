@@ -121,7 +121,7 @@ func fromTFRoot(root *TFRoot) (*config.Config, error) {
 				DbPassword:          inst.DbPassword,
 				ReplicationUser:     "primary_replica_user",
 				ReplicationPassword: "replica_user_password",
-				DataDirectory:       "/var/lib/postgresql/data/primary",
+				DataDirectory:       "/var/lib/postgresql/data",
 			}
 			foundPrimary = true
 			break

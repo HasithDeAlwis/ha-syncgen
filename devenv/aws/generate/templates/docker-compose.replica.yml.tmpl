@@ -9,7 +9,7 @@ services:
     volumes:
       - ./init-scripts:/docker-entrypoint-initdb.d/
       - postgres_data:{{.Datadirectory}}
-    ports:
+    ports: 
       - "5432:5432"
     command: |
       postgres
