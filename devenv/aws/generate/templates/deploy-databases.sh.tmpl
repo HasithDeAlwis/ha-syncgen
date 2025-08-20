@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Complete database deployment automation
+# This is the main script that orchestrates everything
+
+set -e
+
+log_info() {
+    echo -e "\033[0;32m[INFO]\033[0m $1"
+}
+
+log_info "🏗️  PostgreSQL HA Deployment Pipeline Starting..."
+
+# Step 1: Generate all configuration files
+log_info "Step 1: Checking for generated files..."
+
+if [ ! -f "generated/config.yaml" ]; then
+    log_info "No config found. Please run: go run main.go <terraform-output.json> first"
+    exit 1
+fi
+
+if [ ! -d "generated/primary" ]; then
+    log_info "No deployment files found. Generating them now..."
+    go run main.go generate-deployment
+    
+    if [ $? -ne 0 ]; then
+        echo "❌ Generation failed!"
+        exit 1
+    fi
+fi
+
+log_info "✅ All files ready"
+
+# Step 2: Deploy to all servers
+log_info "Step 2: Deploying to all AWS servers..."
+chmod +x generated/deploy-to-servers.sh
+./generated/deploy-to-servers.sh
+
+if [ $? -ne 0 ]; then
+    echo "❌ Deployment failed!"
+    exit 1
+fi
+
+log_info "🎉 Complete deployment successful!"
+log_info ""
+log_info "Your PostgreSQL HA cluster is now running!"
+log_info "Check the logs above for connection details."
