@@ -1,118 +1,102 @@
-# README: Cloud Testing with Real PostgreSQL Instances
 
-This directory contains Terraform configuration and scripts to deploy **real PostgreSQL instances** in AWS and test your `ha-syncgen` tool with actual cloud infrastructure.
+# ha-syncgen: Cloud-Ready PostgreSQL HA Automation
 
-## 🚀 What This Does
+Automate the deployment, configuration, and testing of a real PostgreSQL High Availability (HA) cluster on AWS EC2 using Terraform, Go-based generators, and a Makefile-driven workflow.
 
-1. **Deploys 3 EC2 instances** in AWS with PostgreSQL 14 installed
-2. **Generates ha-syncgen scripts** for the real IP addresses
-3. **Executes your generated scripts** on the actual servers
-4. **Tests streaming replication** between real PostgreSQL instances
-5. **Proves your tool works** in production cloud environments
+---
 
-## 📋 Prerequisites
+## 🏗️ Architecture & Workflow Overview
 
-```bash
-# Install Terraform
-brew install terraform
+- **Terraform** provisions 3 EC2 instances (1 primary, 2 replicas) in AWS.
+- **Go generator** creates all Docker Compose, SQL, and deployment scripts in a single pass.
+- **Makefile** orchestrates the entire workflow: infra, generation, deployment, and cleanup.
 
-# Configure AWS CLI
-aws configure
+**Workflow Steps:**
+1. Provision AWS infrastructure (`make aws`)
+2. Generate deployment files (`make scripts`)
+3. Deploy to servers (`make deploy`)
+4. Generate HA sync scripts (`make syncgen`)
+5. Cleanup (`make clean`)
 
-# Ensure you have AWS credentials with EC2 permissions
+For a detailed step-by-step workflow and implementation notes, see [WORKFLOW_SUMMARY.md](./WORKFLOW_SUMMARY.md).
+
+---
+
+## ⚡ Quick Start
+
+### Prerequisites
+
+- [Terraform](https://www.terraform.io/) installed (`brew install terraform`)
+- [AWS CLI](https://aws.amazon.com/cli/) configured (`aws configure`)
+- AWS credentials with EC2 permissions
+
+### Common Commands
+
+| Step | Command | Description |
+|------|---------|-------------|
+| 1 | `make init-env` | Prepare Terraform config |
+| 2 | `make aws` | Deploy AWS infra (EC2, VPC, etc) |
+| 3 | `make scripts` | Generate all deployment files |
+| 4 | `make deploy` | Deploy Docker/PG to EC2 |
+| 5 | `make syncgen` | Generate HA sync scripts |
+| 6 | `make clean` | Destroy infra & clean up |
+
+---
+
+## �️ Makefile Targets
+
+- `make init-env` – Prepare Terraform config
+- `make aws` – Deploy AWS infra
+- `make scripts` – Generate all deployment files
+- `make deploy` – Deploy to EC2
+- `make syncgen` – Generate HA scripts
+- `make full-deploy` – Full infra + deploy
+- `make full-stack` – Full infra + deploy + HA scripts
+- `make dev-cycle` – Quick redeploy (scripts + deploy)
+- `make clean` – Destroy infra and clean up
+
+---
+
+## 📁 Generated Files Structure
+
+```
+generated/
+├── config.yaml
+├── primary/
+│   ├── docker-compose.yml
+│   └── init-scripts/
+│       └── 01-setup-primary.sql
+├── replica1/
+│   ├── docker-compose.yml
+│   └── init-scripts/
+│       └── 01-setup-replica1.sql
+├── replica2/
+│   ├── docker-compose.yml
+│   └── init-scripts/
+│       └── 01-setup-replica2.sql
+├── deploy-to-servers.sh
+└── DEPLOYMENT_README.md
 ```
 
-## 🏃‍♂️ Quick Start
+---
 
-```bash
-# Navigate to terraform directory
-cd terraform
+## 🧪 Testing & Validation
 
-# Make script executable
-chmod +x deploy-and-test.sh
+- **Manual SSH**: Connect to EC2, check PostgreSQL status, replication
+- **Automated**: All scripts run via Makefile and deployment scripts
 
-# Deploy and test (will prompt for confirmation)
-./deploy-and-test.sh
-```
-
-## 📁 Files
-
-- `main.tf` - Terraform configuration for AWS infrastructure
-- `aws-cluster.yaml` - Template cluster configuration  
-- `deploy-and-test.sh` - Complete deployment and testing script
-- `README.md` - This file
+---
 
 ## 💰 Cost Considerations
 
 - Uses `t3.micro` instances (free tier eligible)
 - Estimated cost: ~$0.50/hour for 3 instances
-- **Remember to destroy resources** when done testing
+- **Remember to destroy resources** when done testing (`make clean`)
 
-## 🧪 What Gets Tested
+---
 
-### ✅ Real Infrastructure
-- 3 EC2 instances with PostgreSQL 14
-- Proper VPC, subnets, and security groups
-- Real network connectivity between instances
+## � Troubleshooting & FAQ
 
-### ✅ Generated Scripts Execution
-- `setup_primary.sh` runs on primary server
-- `setup_replication.sh` runs on both replicas
-- `health_check.sh` can be tested manually
-
-### ✅ PostgreSQL Streaming Replication
-- Replication slots created and used
-- pg_basebackup executed from replicas
-- Data replication verified with test queries
-
-### ✅ Configuration Files Applied
-- `postgresql.conf.patch` applied to primary
-- `pg_hba.conf.patch` applied for authentication
-- Systemd service files created
-
-## 🔍 Manual Testing Steps
-
-After deployment, you can manually test:
-
-```bash
-# SSH to primary
-ssh -i ~/.ssh/ha-syncgen-test.pem ec2-user@<PRIMARY_IP>
-
-# Check PostgreSQL status
-sudo systemctl status postgresql-14
-sudo -u postgres psql -c "SELECT * FROM pg_stat_replication;"
-
-# SSH to replica
-ssh -i ~/.ssh/ha-syncgen-test.pem ec2-user@<REPLICA_IP>
-
-# Check replication status
-sudo -u postgres psql -c "SELECT pg_is_in_recovery();"
-```
-
-## 🧹 Cleanup
-
-```bash
-# Destroy AWS resources
-cd terraform
-terraform destroy
-```
-
-## 📊 Results
-
-This test proves:
-- ✅ Your `ha-syncgen` tool generates **working scripts**
-- ✅ Scripts work on **real Linux servers** (Amazon Linux 2)
-- ✅ PostgreSQL streaming replication **actually functions**
-- ✅ Configuration files **properly configure** PostgreSQL
-- ✅ Your tool creates **production-ready** infrastructure automation
-
-## 🏆 Resume Value
-
-Successfully completing this test demonstrates:
-- **Infrastructure as Code** with Terraform
-- **PostgreSQL High Availability** implementation
-- **AWS Cloud Deployment** experience
-- **Automation Tool Development** with real-world validation
-- **DevOps/SRE Skills** with database replication
-
-This is exactly the kind of project that shows you can build tools that work in production cloud environments!
+- **SSH Issues**: Check your key and security group rules
+- **Terraform Errors**: Ensure AWS credentials and region are set
+- **Docker Issues**: Check Docker Compose logs on EC2
