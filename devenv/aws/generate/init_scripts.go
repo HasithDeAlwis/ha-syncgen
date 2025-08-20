@@ -75,11 +75,11 @@ func GeneratePrimaryInitScript(cfg *config.Config) error {
 
 	outputFile := filepath.Join(outputDir, "init-scripts", "01-setup-primary.sql")
 	file, err := os.Create(outputFile)
-	defer file.Close()
 
 	if err != nil {
 		return fmt.Errorf("failed to create primary init script: %v", err)
 	}
+	defer file.Close()
 
 	if err := tmpl.Execute(file, data); err != nil {
 		return fmt.Errorf("failed to execute primary init template: %v", err)
@@ -113,11 +113,11 @@ func GenerateReplicaInitScripts(cfg *config.Config) error {
 
 		outputFile := filepath.Join(outputDir, "init-scripts", fmt.Sprintf("01-setup-%s.sql", replicaName))
 		file, err := os.Create(outputFile)
-		defer file.Close()
 
 		if err != nil {
 			return fmt.Errorf("failed to create %s init script: %v", replicaName, err)
 		}
+		defer file.Close()
 
 		if err := tmpl.Execute(file, data); err != nil {
 			return fmt.Errorf("failed to execute %s init template: %v", replicaName, err)
