@@ -1,9 +1,6 @@
 -- PostgreSQL Primary Database Initialization
 -- Generated from config.yaml
 
--- Create admin user
-CREATE USER {{.DbUser}} WITH PASSWORD '{{.DbPassword}}' SUPERUSER;
-
 -- Create replication user for streaming replication
 CREATE USER {{.ReplicationUser}} WITH PASSWORD '{{.ReplicationPassword}}' REPLICATION;
 
