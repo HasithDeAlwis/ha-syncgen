@@ -1,27 +1,93 @@
 # Simple Makefile for the AWS dev environment
 # Targets:
-#  - aws    : initialize, plan and apply terraform in ./terraform
-#  - config : create configuration files (copies terraform.tfvars.example -> terraform.tfvars)
-#  - clean  : destroy infra (terraform destroy) and remove local terraform state/backups
+#  - init-env : setup terraform configuration (terraform.tfvars)
+#  - aws      : initialize, plan and apply terraform in ./terraform  
+#  - scripts  : generate ALL deployment files (config.yaml + docker + sql + .sh)
+#  - deploy   : deploy Docker containers to AWS servers
+#  - syncgen  : generate HA sync scripts using main syncgen CLI
+#  - clean    : destroy infra and remove local terraform state/backups
 
 SHELL := /bin/zsh
 TF_DIR := terraform
 
-.PHONY: help aws config clean init plan apply destroy validate fmt
+.PHONY: help init-env aws scripts deploy syncgen clean full-deploy full-stack dev-cycle init plan apply destroy
 
 help: ## Show this help
-	@printf "Available targets:\n";
-	@printf "  %-10s %s\n" "aws"    "Initialize, plan and apply Terraform in ./$(TF_DIR)";
-	@printf "  %-10s %s\n" "config" "Create missing config files (from examples)";
-	@printf "  %-10s %s\n" "clean"  "Destroy infra and wipe local Terraform state/backups";
-	@printf "  %-10s %s\n" "init"   "Run 'terraform init' in ./$(TF_DIR)";
-	@printf "  %-10s %s\n" "plan"   "Run 'terraform plan' in ./$(TF_DIR)";
-	@printf "  %-10s %s\n" "apply"  "Run 'terraform apply' in ./$(TF_DIR)";
+	@printf "Available targets:\n"
+	@printf "  %-12s %s\n" "init-env"    "Setup terraform configuration (terraform.tfvars)"
+	@printf "  %-12s %s\n" "aws"         "Deploy AWS infrastructure (init + plan + apply)"
+	@printf "  %-12s %s\n" "scripts"     "Generate ALL deployment files from terraform state"
+	@printf "  %-12s %s\n" "deploy"      "Deploy Docker containers to AWS servers"
+	@printf "  %-12s %s\n" "syncgen"     "Generate HA sync scripts using main syncgen CLI"
+	@printf "  %-12s %s\n" "clean"       "Destroy infra and remove local terraform state"
+	@printf ""
+	@printf "Convenience targets:\n"
+	@printf "  %-12s %s\n" "full-deploy" "Complete deployment: init-env → aws → scripts → deploy"
+	@printf "  %-12s %s\n" "full-stack"  "Everything including HA scripts: full-deploy → syncgen"
+	@printf "  %-12s %s\n" "dev-cycle"   "Quick redeploy: scripts → deploy (assumes AWS exists)"
 
-## Top-level convenience target: run full flow
-aws: init plan apply
+## Setup terraform configuration
+init-env: ## Setup terraform configuration from example
+	@echo "-> Setting up terraform configuration"
+	@if [ ! -f "$(TF_DIR)/terraform.tfvars" ]; then \
+		cp $(TF_DIR)/terraform.tfvars.example $(TF_DIR)/terraform.tfvars; \
+		echo "✅ Created terraform.tfvars from example. Please edit it with your settings."; \
+	else \
+		echo "✅ terraform.tfvars already exists"; \
+	fi
 
-## Ensure terraform is initialized
+## Deploy AWS infrastructure: init → plan → apply
+aws: init plan apply ## Deploy AWS infrastructure
+
+## Generate ALL deployment files from terraform state (single pass - no config.yaml roundtrip)
+scripts: ## Generate config.yaml + docker + sql + deployment scripts from terraform state
+	@echo "-> Generating all deployment files from terraform state"
+	@if [ ! -f "$(TF_DIR)/terraform.tfstate" ]; then \
+		echo "❌ terraform.tfstate not found. Run 'make aws' first"; \
+		exit 1; \
+	fi
+	@go run main.go generate-all-from-terraform $(TF_DIR)/terraform.tfstate
+	@echo "✅ All deployment files generated successfully"
+
+## Deploy Docker containers to AWS servers
+deploy: ## Deploy PostgreSQL containers to AWS servers via SSH
+	@echo "-> Deploying PostgreSQL containers to AWS servers"
+	@if [ ! -f "generated/deploy-to-servers.sh" ]; then \
+		echo "❌ Deployment scripts not found. Run 'make scripts' first"; \
+		exit 1; \
+	fi
+	@chmod +x generated/deploy-to-servers.sh
+	@./generated/deploy-to-servers.sh
+	@echo "✅ Deployment completed successfully"
+
+## Generate HA sync scripts using main syncgen CLI
+syncgen: ## Generate HA sync scripts (requires generated/config.yaml)
+	@echo "-> Generating HA sync scripts using main syncgen CLI"
+	@if [ ! -f "generated/config.yaml" ]; then \
+		echo "❌ config.yaml not found. Run 'make scripts' first"; \
+		exit 1; \
+	fi
+	@echo "-> Building syncgen CLI"
+	@cd ../../ && go build
+	@echo "-> Validating configuration"
+	@cd ../../ && ./syncgen validate ./devenv/aws/generated/config.yaml
+	@echo "-> Generating HA scripts"
+	@cd ../../ && ./syncgen build ./devenv/aws/generated/config.yaml
+	@echo "✅ HA sync scripts generated successfully"
+
+## Convenience targets
+full-deploy: init-env aws scripts deploy ## Complete deployment from scratch
+	@echo "🎉 Complete PostgreSQL HA deployment successful!"
+	@echo "Your cluster is running with the following servers:"
+	@grep -E "Primary:|Replica" generated/DEPLOYMENT_README.md || echo "Check generated/DEPLOYMENT_README.md for connection details"
+
+full-stack: full-deploy syncgen ## Everything including HA sync scripts
+	@echo "🎉 Full HA PostgreSQL stack deployed successfully!"
+
+dev-cycle: scripts deploy ## Quick redeploy (assumes AWS infrastructure exists)
+	@echo "🔄 Development cycle complete - configs regenerated and deployed!"
+
+## Terraform operations
 init: ## terraform init
 	@echo "-> Initializing Terraform in $(TF_DIR)"
 	@cd $(TF_DIR) && terraform init
@@ -34,46 +100,30 @@ apply: ## terraform apply (non-interactive)
 	@echo "-> Applying terraform (this may create cloud resources)"
 	@cd $(TF_DIR) && terraform apply -auto-approve -var-file=terraform.tfvars
 
-## Setup: generate config.yaml then run the central CLI via main.go
-.PHONY: setup
-setup: config ## Generate config (make config) then run repo main.go which invokes the CLI in cmd
-	@echo "-> Running generator (make config) to produce config.yaml"
-	@$(MAKE) config
-	@echo "-> Building syncgen"
-	@cd ../../ && go build
-	@echo "-> Running syncgen validate"
-	@cd ../../ && ./syncgen validate ./devenv/aws/config.yaml
-	@echo "-> Running syncgen generate"
-	@cd ../../ && ./syncgen build ./devenv/aws/config.yaml
-
 destroy: ## terraform destroy (non-interactive)
-	@echo "-> Destroying terraform-managed infrastructure (non-interactive)"
+	@echo "-> Destroying terraform-managed infrastructure"
 	@cd $(TF_DIR) && terraform destroy -auto-approve -var-file=terraform.tfvars || true
 
-## Create configuration files from examples if they don't exist
-config: ## If config exists delete it, then run the generator (simple flow)
-	@echo "-> Checking for config.yaml in $(CURDIR)"
-	@if [ -f "config.yaml" ]; then \
-		echo "config.yaml exists in $(CURDIR); removing it"; \
-		rm -f config.yaml; \
-	else \
-		echo "config.yaml not found. Will attempt to generate from terraform state at ./terraform/terraform.tfstate"; \
-	fi; \
-	cd ../.. && go run ./devenv/aws ./devenv/aws/terraform/terraform.tfstate || { echo "Generator failed"; exit 1; }
-
-## Clean: destructive - ask confirmation, attempt destroy, then remove local state & backups
+## Clean: destructive - destroy infra and remove local state/backups
 clean: ## Destroy infra and remove local terraform state/backups
-	@echo "-> CLEAN: this will attempt to destroy infra and remove local terraform state/backups"
+	@echo "-> CLEAN: this will destroy infra and remove local terraform state/backups"
 	@read -q "REPLY?Are you sure you want to continue? (y/N) " && echo; \
 	if [ "$$REPLY" != "y" ]; then echo "Aborting clean."; exit 1; fi
+	@echo "-> Destroying infrastructure"
+	@$(MAKE) destroy || true
+	@echo "-> Cleaning local terraform state"
 	@if [ -d "$(TF_DIR)" ]; then \
-		cd $(TF_DIR) && terraform destroy -auto-approve -var-file=terraform.tfvars || true; \
 		rm -rf "$(TF_DIR)/.terraform" "$(TF_DIR)/.terraform.lock.hcl" "$(TF_DIR)/terraform.tfstate" "$(TF_DIR)/terraform.tfstate.backup" "$(TF_DIR)/terraform.tfvars" "$(TF_DIR)"/*.backup || true; \
 		echo "Removed local terraform state and related files from $(TF_DIR)"; \
-	else \
-		echo "No $(TF_DIR) directory found; nothing to clean there."; \
 	fi
-	# Optionally remove repo-level generated artifacts if present (keeps it safe by ignoring errors)
-	@echo "-> Removing repo-level generated/ directory if present"
+	@echo "-> Cleaning generated files"
+	@rm -rf generated/ || true
 	@rm -rf ../../generated || true
-	@echo "Clean complete."
+	@echo "✅ Clean complete"
+
+## Legacy targets (backward compatibility)
+config: scripts ## Legacy: generate config (now generates all scripts)
+	@echo "⚠️  'make config' is deprecated. Use 'make scripts' instead."
+
+setup: full-stack ## Legacy: complete setup (now same as full-stack)
+	@echo "⚠️  'make setup' is deprecated. Use 'make full-stack' instead."
