@@ -72,8 +72,16 @@ resource "aws_security_group" "postgres_sg" {
 locals {
   user_data = <<-EOF
     #!/bin/bash
+    set -e
     yum update -y
-    amazon-linux-extras install docker
+    yum install -y postgresql15 postgresql15-server postgresql15-contrib nc sudo --skip-broken
+    # Initialize PostgreSQL DB if not already initialized
+    if [ ! -d "/var/lib/pgsql/15/data" ]; then
+      sudo /usr/bin/postgresql-setup --initdb
+    fi
+    # Enable and start PostgreSQL
+    systemctl enable postgresql
+    systemctl start postgresql
   EOF
 
   instances = {

@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"syncgen/devenv/aws/generate"
 	"syncgen/internal/config"
 )
@@ -12,6 +14,8 @@ func main() {
 		fmt.Println("Usage:")
 		fmt.Println("  go run main.go generate-all-from-terraform <tf_output>    # Generate ALL files from terraform state (RECOMMENDED)")
 		fmt.Println("  go run main.go generate-all-from-config                   # Generate ALL files from existing config")
+		fmt.Println("  go run main.go generate-ssh-scripts                       # Generate SSH transfer and run scripts for VMs")
+		fmt.Println("  go run main.go generate-syncgen-transfer-scripts          # Generate per-VM syncgen transfer/run scripts from generated/")
 		os.Exit(1)
 	}
 
@@ -39,21 +43,48 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println("🎉 All files generated successfully - ready for deployment!")
+
+	case "generate-syncgen-transfer-scripts":
+		err := generateSyncgenTransferScripts()
+		if err != nil {
+			fmt.Printf("Error generating syncgen transfer scripts: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("✅ Syncgen transfer and run scripts generated successfully!")
 	}
+}
+
+func generateSyncgenTransferScripts() error {
+	fmt.Println("🔄 Generating syncgen transfer and run scripts from generated/ ...")
+
+	// Load config from generated/config.yaml in root
+	cfg, cfgErr := generate.LoadConfigFromGenerated()
+	if cfgErr != nil {
+		return fmt.Errorf("failed to load config from generated/config.yaml: %v", cfgErr)
+	}
+	localGenerate, genErr := localGenerateDirectory()
+	if genErr != nil {
+		return fmt.Errorf("failed to determine local generated/ directory: %v", genErr)
+	}
+
+	if err := generate.GenerateSyncgenTransferScripts(cfg, localGenerate); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func runAllGenerators(cfg *config.Config, printStages bool) error {
 	if printStages {
-		fmt.Println("🐳 Generating Docker Compose files...")
-	}
-	if err := generate.GenerateAllDockerCompose(cfg); err != nil {
-		return fmt.Errorf("failed to generate Docker Compose files: %v", err)
-	}
-
-	if printStages {
 		fmt.Println("📝 Generating SQL initialization scripts...")
 	}
-	if err := generate.GenerateAllInitScripts(cfg); err != nil {
+
+	localGenerate, err := localGenerateDirectory()
+	if err != nil {
+		return fmt.Errorf("failed to determine local generated/ directory: %v", err)
+	}
+
+	if err := generate.GenerateAllInitScripts(cfg, localGenerate); err != nil {
 		return fmt.Errorf("failed to generate SQL init scripts: %v", err)
 	}
 
@@ -113,4 +144,45 @@ func generateAllFromTerraform(tfstatePath string) error {
 
 	fmt.Println("✅ All generation complete!")
 	return nil
+}
+
+func localGenerateDirectory() (string, error) {
+	_, sourceFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("unable to get caller information")
+	}
+
+	absPath, err := filepath.Abs(sourceFile)
+	if err != nil {
+		return "", err
+	}
+
+	genDir := filepath.Join(filepath.Dir(absPath), "generated")
+	genDirErr := os.MkdirAll(genDir, 0755)
+	if genDirErr != nil {
+		return "", fmt.Errorf("failed to create generated directory: %v", genDirErr)
+	}
+	return genDir, nil
+}
+
+func getRootGeneratedDir() (string, error) {
+	// Find the root of the repo by walking up from this file
+	_, sourceFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("unable to get caller information")
+	}
+	absPath, err := filepath.Abs(sourceFile)
+	if err != nil {
+		return "", err
+	}
+	// go up to repo root
+	awsDir := filepath.Dir(absPath)        // ../aws
+	devEnvDir := filepath.Dir(awsDir)      // ../devenv
+	projectRoot := filepath.Dir(devEnvDir) // ../ha-syncgen
+	genDir := filepath.Join(projectRoot, "generated")
+	genDirErr := os.MkdirAll(genDir, 0755)
+	if genDirErr != nil {
+		return "", fmt.Errorf("failed to create generated directory: %v", err)
+	}
+	return genDir, nil
 }

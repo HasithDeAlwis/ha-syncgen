@@ -1,17 +1,10 @@
 -- PostgreSQL Primary Database Initialization
 -- Generated from config.yaml
 
+CREATE USER {{ .DbUser }} WITH PASSWORD '{{ .DbPassword }}' SUPERUSER;
+
 -- Create replication user for streaming replication
 CREATE USER {{.ReplicationUser}} WITH PASSWORD '{{.ReplicationPassword}}' REPLICATION;
-
--- Create monitoring user for Datadog
-CREATE USER datadog_user WITH PASSWORD '{{.DatadogPassword}}';
-
--- Grant necessary permissions to datadog user
-GRANT SELECT ON pg_stat_database TO datadog_user;
-GRANT SELECT ON pg_stat_replication TO datadog_user;
-GRANT SELECT ON pg_stat_activity TO datadog_user;
-GRANT SELECT ON pg_locks TO datadog_user;
 
 -- Configure replication settings
 ALTER SYSTEM SET wal_level = '{{.WalLevel}}';

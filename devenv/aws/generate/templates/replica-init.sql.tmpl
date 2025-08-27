@@ -1,13 +1,7 @@
 -- PostgreSQL Replica Database Initialization
 -- Generated from config.yaml
 
--- Create monitoring user for Datadog
-CREATE USER datadog_user WITH PASSWORD '{{.DatadogPassword}}';
-
--- Grant necessary permissions to datadog user  
-GRANT SELECT ON pg_stat_database TO datadog_user;
-GRANT SELECT ON pg_stat_activity TO datadog_user;
-GRANT SELECT ON pg_locks TO datadog_user;
+CREATE USER {{ .DbUser }} WITH PASSWORD '{{ .DbPassword }}' SUPERUSER;
 
 -- Configure replica-specific settings
 ALTER SYSTEM SET hot_standby = {{.HotStandby}};
@@ -20,6 +14,5 @@ DO $$
 BEGIN
     RAISE NOTICE 'Replica PostgreSQL database initialized successfully';
     RAISE NOTICE 'Admin user: {{.DbUser}}';
-    RAISE NOTICE 'Monitoring user: datadog_user';
     RAISE NOTICE 'Replica slot: {{.ReplicationSlot}}';
 END $$;
