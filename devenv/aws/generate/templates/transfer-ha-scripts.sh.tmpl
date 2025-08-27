@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+echo 'Transferring files to VMs...'
+{{- range .Transfers }}
+echo '--- {{ .Host }}'
+ssh -i '{{ $.SSHKeyPath }}' {{ $.SSHUser }}@{{ .Host }} 'mkdir -p ~{{ .RemoteDir }}'
+{{- $transfer := . }}
+{{- range .Files }}
+scp -i '{{ $.SSHKeyPath }}' ../../generated/{{ . }} {{ $.SSHUser }}@{{ $transfer.Host }}:~{{ $transfer.RemoteDir }}/$(basename {{ . }})
+ssh -i '{{ $.SSHKeyPath }}' {{ $.SSHUser }}@{{ $transfer.Host }} 'chmod +x ~{{ $transfer.RemoteDir }}/$(basename {{ . }})' || true
+{{- end }}
+{{- end }}

@@ -47,7 +47,14 @@ func loadInitScriptTemplate(templateName string) (*template.Template, error) {
 	return tmpl, nil
 }
 
-func GeneratePrimaryInitScript(cfg *config.Config) error {
+func boolToString(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+func GeneratePrimaryInitScript(cfg *config.Config, outputDir string) error {
 	// Load template
 	tmpl, err := loadInitScriptTemplate("primary-init.sql.tmpl")
 	if err != nil {
@@ -68,12 +75,7 @@ func GeneratePrimaryInitScript(cfg *config.Config) error {
 		SynchronousCommit:   cfg.Options.SynchronousCommit,
 	}
 
-	outputDir, err := generateDockerComposeDir("primary")
-	if err != nil {
-		return err
-	}
-
-	outputFile := filepath.Join(outputDir, "init-scripts", "01-setup-primary.sql")
+	outputFile := filepath.Join(outputDir, "01-setup-primary.sql")
 	file, err := os.Create(outputFile)
 
 	if err != nil {
@@ -89,7 +91,7 @@ func GeneratePrimaryInitScript(cfg *config.Config) error {
 	return nil
 }
 
-func GenerateReplicaInitScripts(cfg *config.Config) error {
+func GenerateReplicaInitScripts(cfg *config.Config, outputDir string) error {
 	tmpl, err := loadInitScriptTemplate("replica-init.sql.tmpl")
 	if err != nil {
 		return err
@@ -106,12 +108,7 @@ func GenerateReplicaInitScripts(cfg *config.Config) error {
 			ReplicationSlot: replica.ReplicationSlot,
 		}
 
-		outputDir, err := generateDockerComposeDir(replicaName)
-		if err != nil {
-			return err
-		}
-
-		outputFile := filepath.Join(outputDir, "init-scripts", fmt.Sprintf("01-setup-%s.sql", replicaName))
+		outputFile := filepath.Join(outputDir, fmt.Sprintf("01-setup-%s.sql", replicaName))
 		file, err := os.Create(outputFile)
 
 		if err != nil {
@@ -129,14 +126,14 @@ func GenerateReplicaInitScripts(cfg *config.Config) error {
 	return nil
 }
 
-func GenerateAllInitScripts(cfg *config.Config) error {
+func GenerateAllInitScripts(cfg *config.Config, outputDir string) error {
 	fmt.Println("📝 Generating SQL initialization scripts...")
 
-	if err := GeneratePrimaryInitScript(cfg); err != nil {
+	if err := GeneratePrimaryInitScript(cfg, outputDir); err != nil {
 		return fmt.Errorf("failed to generate primary init script: %v", err)
 	}
 
-	if err := GenerateReplicaInitScripts(cfg); err != nil {
+	if err := GenerateReplicaInitScripts(cfg, outputDir); err != nil {
 		return fmt.Errorf("failed to generate replica init scripts: %v", err)
 	}
 

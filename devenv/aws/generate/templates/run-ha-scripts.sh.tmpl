@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+echo 'Running scripts on VMs...'
+{{- range .Transfers }}
+{{- if .Host }}
+echo '--- {{ .Host }}'
+{{- $transfer := . }}
+{{- range .Files }}
+ssh -i '{{ $.SSHKeyPath }}' {{ $.SSHUser }}@{{ $transfer.Host }} '{{ $transfer.RemoteDir }}/{{ . }}'
+{{- end }}
+{{- end }}
+{{- end }}
