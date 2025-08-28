@@ -1,12 +1,9 @@
-#!/bin/bash
-set -e
-echo 'Running scripts on VMs...'
-{{- range .Transfers }}
-{{- if .Host }}
-echo '--- {{ .Host }}'
-{{- $transfer := . }}
-{{- range .Files }}
-ssh -i '{{ $.SSHKeyPath }}' {{ $.SSHUser }}@{{ $transfer.Host }} '{{ $transfer.RemoteDir }}/{{ . }}'
+echo '--- SETTING UP PRIMARY ----'
+echo 'Setting up primary at {{ .Primary.Host }}'
+ssh -tt -i '{{ $.SSHKeyPath }}' {{ $.SSHUser }}@{{ .Primary.Host }} 'cd syncgen && sudo bash ./setup_primary.sh'
+echo '--- SETTING UP REPLICAS ---'
+{{- range .Replicas }}
+echo 'Setting up replica at {{ .Host }}'
+ssh -tt -i '{{ $.SSHKeyPath }}' {{ $.SSHUser }}@{{ .Host }} 'cd syncgen && sudo bash ./setup_replication.sh'
 {{- end }}
-{{- end }}
-{{- end }}
+echo '--- SETUP COMPLETE ---'

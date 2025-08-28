@@ -75,10 +75,7 @@ locals {
     set -e
     yum update -y
     yum install -y postgresql15 postgresql15-server postgresql15-contrib nc sudo --skip-broken
-    # Initialize PostgreSQL DB if not already initialized
-    if [ ! -d "/var/lib/pgsql/15/data" ]; then
-      sudo /usr/bin/postgresql-setup --initdb
-    fi
+    sudo /usr/bin/postgresql-setup --initdb
     # Enable and start PostgreSQL
     systemctl enable postgresql
     systemctl start postgresql

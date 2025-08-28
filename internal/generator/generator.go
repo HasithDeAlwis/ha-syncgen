@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"syncgen/internal/config"
 )
@@ -25,7 +26,27 @@ func New(cfg *config.Config, outputDir string) *Generator {
 // GenerateAll generates all necessary files for the HA setup
 func (g *Generator) GenerateAll() error {
 	// Generate primary configuration files
-	if err := g.generatePrimaryFiles(); err != nil {
+	tmplDir, tmplErr := getTemplateDirectory()
+	if tmplErr != nil {
+		return fmt.Errorf("failed to get template directory: %w", tmplErr)
+	}
+
+	pgHbaTmpl, err := parseTemplateByName(tmplDir, "pg_hba.conf.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to parse pg_hba.conf template: %w", err)
+	}
+
+	postgresqlConfTmpl, err := parseTemplateByName(tmplDir, "postgresql.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to parse postgresql.conf template: %w", err)
+	}
+
+	setupPrimaryTmpl, err := parseTemplateByName(tmplDir, "setup_primary.sh.tmpl")
+	if err != nil {
+		return fmt.Errorf("failed to parse setup_primary.sh template: %w", err)
+	}
+
+	if err := g.generatePrimaryFiles(pgHbaTmpl, postgresqlConfTmpl, setupPrimaryTmpl); err != nil {
 		return fmt.Errorf("failed to generate primary files: %w", err)
 	}
 
@@ -67,4 +88,22 @@ func (g *Generator) generateReplicaFiles(replica config.Replica) error {
 	}
 
 	return nil
+}
+
+func getTemplateDirectory() (string, error) {
+	_, source, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("unable to get caller information")
+	}
+	absPath, err := filepath.Abs(source)
+	if err != nil {
+		return "", err
+	}
+	generatorDir := filepath.Dir(absPath)
+	return filepath.Join(generatorDir, "templates"), nil
+}
+
+func getTemplate(templateDirectory string, templateName string) (string, error) {
+	templatePath := filepath.Join(templateDirectory, templateName)
+	return templatePath, nil
 }

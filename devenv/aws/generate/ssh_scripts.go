@@ -26,6 +26,13 @@ type SSHSyncgenTransferData struct {
 	SSHUser    string // Default to ec2-user if not set
 }
 
+type SSHRunScriptsData struct {
+	SSHKeyPath string
+	SSHUser    string
+	Primary    VMFileTransfer
+	Replicas   []VMFileTransfer
+}
+
 // PrettyPrint prints SSHSyncgenTransferData in a readable format
 func (d *SSHSyncgenTransferData) PrettyPrint() {
 	fmt.Printf("SSH User: %s\nSSH Key Path: %s\n", d.SSHUser, d.SSHKeyPath)
@@ -140,7 +147,13 @@ func GenerateSyncgenTransferScripts(cfg *config.Config, genDir string) error {
 		return fmt.Errorf("failed to generate transfer-ha-scripts.sh: %w", err)
 	}
 
-	if err := renderSyncgenScriptTemplate(runTmplPath, data, runPath); err != nil {
+	modifiedData := map[string]interface{}{
+		"SSHKeyPath": data.SSHKeyPath,
+		"SSHUser":    data.SSHUser,
+		"Primary":    data.Transfers[0],
+		"Replicas":   data.Transfers[1:],
+	}
+	if err := renderSyncgenScriptTemplate(runTmplPath, modifiedData, runPath); err != nil {
 		return fmt.Errorf("failed to generate run-ha-scripts.sh: %w", err)
 	}
 
@@ -148,7 +161,7 @@ func GenerateSyncgenTransferScripts(cfg *config.Config, genDir string) error {
 	return nil
 }
 
-func renderSyncgenScriptTemplate(tmplPath string, data *SSHSyncgenTransferData, outPath string) error {
+func renderSyncgenScriptTemplate(tmplPath string, data interface{}, outPath string) error {
 	tmplContent, err := os.ReadFile(tmplPath)
 	if err != nil {
 		return fmt.Errorf("failed to read template %s: %w", tmplPath, err)

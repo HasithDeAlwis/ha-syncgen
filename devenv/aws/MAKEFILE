@@ -59,13 +59,12 @@ syncgen-transfer: ## Generate and run syncgen transfer scripts for all VMs
 	@go run main.go generate-syncgen-transfer-scripts
 	@chmod +x ./generated/transfer-ha-scripts.sh ./generated/run-ha-scripts.sh
 	@echo "✅ Syncgen transfer and run scripts generated."
-	@./generated/transfer-ha-scripts.sh
 
 syncgen-transfer-execute: syncgen-transfer ## Transfer and execute all syncgen files on VMs
 	@echo "-> Transferring all syncgen files to VMs"
-	@../generated/transfer-ha-scripts.sh
+	@./generated/transfer-ha-scripts.sh
 	@echo "-> Running all syncgen scripts on VMs"
-	@../generated/run-ha-scripts.sh
+	@./generated/run-ha-scripts.sh
 	@echo "✅ All syncgen scripts transferred and executed on VMs."
 
 ## Deploy Docker containers to AWS servers
@@ -100,7 +99,7 @@ full-deploy: init-env aws scripts deploy ## Complete deployment from scratch
 	@echo "Your cluster is running with the following servers:"
 	@grep -E "Primary:|Replica" generated/DEPLOYMENT_README.md || echo "Check generated/DEPLOYMENT_README.md for connection details"
 
-full-stack: full-deploy syncgen ## Everything including HA sync scripts
+full-stack: full-deploy syncgen syncgen-transfer syncgen-transfer-execute ## Everything including HA sync scripts and setting up the replicas
 	@echo "🎉 Full HA PostgreSQL stack deployed successfully!"
 
 dev-cycle: scripts deploy ## Quick redeploy (assumes AWS infrastructure exists)
