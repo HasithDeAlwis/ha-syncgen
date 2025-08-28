@@ -90,7 +90,7 @@ locals {
       name        = "ha-syncgen-primary",
       db_user     = "admin",
       db_password = "admin_password",
-      db_name     = "primary"
+      db_name     = "primary_db"
     }
     replica1 = {
       role        = "replica",

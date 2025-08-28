@@ -13,6 +13,7 @@ import (
 // InitScriptData holds the data for SQL init script template rendering
 type InitScriptData struct {
 	DbUser              string
+	DbName              string
 	DbPassword          string
 	ReplicationUser     string
 	ReplicationPassword string
@@ -66,6 +67,7 @@ func GeneratePrimaryInitScript(cfg *config.Config, outputDir string) error {
 		DbUser:              cfg.Primary.DbUser,
 		DbPassword:          cfg.Primary.DbPassword,
 		ReplicationUser:     cfg.Primary.ReplicationUser,
+		DbName:              cfg.Primary.DbName,
 		ReplicationPassword: cfg.Primary.ReplicationPassword,
 		DatadogPassword:     cfg.Monitoring.Datadog.DatadogUserPassword,
 		WalLevel:            cfg.Options.WalLevel,

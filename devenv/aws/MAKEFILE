@@ -59,6 +59,7 @@ syncgen-transfer: ## Generate and run syncgen transfer scripts for all VMs
 	@go run main.go generate-syncgen-transfer-scripts
 	@chmod +x ./generated/transfer-ha-scripts.sh ./generated/run-ha-scripts.sh
 	@echo "✅ Syncgen transfer and run scripts generated."
+	@./generated/transfer-ha-scripts.sh
 
 syncgen-transfer-execute: syncgen-transfer ## Transfer and execute all syncgen files on VMs
 	@echo "-> Transferring all syncgen files to VMs"
