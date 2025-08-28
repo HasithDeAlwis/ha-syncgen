@@ -3,8 +3,6 @@
 
 CREATE USER {{ .DbUser }} WITH PASSWORD '{{ .DbPassword }}' SUPERUSER;
 
--- Configure replica-specific settings
-ALTER SYSTEM SET hot_standby = {{.HotStandby}};
 
 -- Reload configuration
 SELECT pg_reload_conf();

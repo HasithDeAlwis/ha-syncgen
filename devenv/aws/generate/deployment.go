@@ -14,20 +14,10 @@ import (
 
 // DeploymentData holds data for deployment script generation
 type DeploymentData struct {
-	PrimaryIP       string
-	PrimaryUser     string
-	PrimaryPassword string
-	PrimaryDBName   string
-	Replicas        []ReplicaDeploymentData
-	SSHKeyPath      string
-	SSHUser         string
-}
-
-type ReplicaDeploymentData struct {
-	IP       string
-	User     string
-	Password string
-	Name     string
+	PrimaryIP  string
+	Replicas   []string
+	SSHKeyPath string
+	SSHUser    string
 }
 
 func loadDeploymentTemplate(templateName string) (string, error) {
@@ -86,21 +76,13 @@ func prepareDeploymentData(cfg *config.Config) (DeploymentData, error) {
 	}
 
 	deployData := DeploymentData{
-		PrimaryIP:       cfg.Primary.Host,
-		PrimaryUser:     cfg.Primary.DbUser,
-		PrimaryPassword: cfg.Primary.DbPassword,
-		PrimaryDBName:   cfg.Primary.DbName,
-		SSHKeyPath:      sshKeyPath,
-		SSHUser:         sshUser,
+		PrimaryIP:  cfg.Primary.Host,
+		SSHKeyPath: sshKeyPath,
+		SSHUser:    sshUser,
 	}
 
-	for i, replica := range cfg.Replicas {
-		replicaData := ReplicaDeploymentData{
-			IP:       replica.Host,
-			User:     replica.DbUser,
-			Password: replica.DbPassword,
-			Name:     fmt.Sprintf("replica%d", i+1),
-		}
+	for _, replica := range cfg.Replicas {
+		replicaData := replica.Host
 		deployData.Replicas = append(deployData.Replicas, replicaData)
 	}
 	return deployData, nil
@@ -147,16 +129,15 @@ func GenerateDeploymentScripts(cfg *config.Config) error {
 		return err
 	}
 
-	if err := generateAndWriteScript(outputDir, "DEPLOYMENT_README.md", "DEPLOYMENT_README.md.tmpl", deployData); err != nil {
-		return err
-	}
-
 	fmt.Println("✅ All deployment scripts generated successfully")
 	return nil
 }
 
 func generateScriptFromTemplate(tmplContent string, data DeploymentData, outputPath string) error {
-	tmpl, err := template.New("script").Parse(tmplContent)
+	funcMap := template.FuncMap{
+		"add1": func(i int) int { return i + 1 },
+	}
+	tmpl, err := template.New("script").Funcs(funcMap).Parse(tmplContent)
 	if err != nil {
 		return fmt.Errorf("failed to parse template: %v", err)
 	}

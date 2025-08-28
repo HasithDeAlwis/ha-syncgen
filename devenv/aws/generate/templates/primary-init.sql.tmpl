@@ -6,6 +6,8 @@ CREATE USER {{ .DbUser }} WITH PASSWORD '{{ .DbPassword }}' SUPERUSER;
 -- Create replication user for streaming replication
 CREATE USER {{.ReplicationUser}} WITH PASSWORD '{{.ReplicationPassword}}' REPLICATION;
 
+CREATE DATABASE {{.DbName}} OWNER {{.DbUser}};
+
 -- Configure replication settings
 ALTER SYSTEM SET wal_level = '{{.WalLevel}}';
 ALTER SYSTEM SET max_wal_senders = {{.MaxWalSenders}};
@@ -22,5 +24,4 @@ BEGIN
     RAISE NOTICE 'Primary PostgreSQL database initialized successfully';
     RAISE NOTICE 'Admin user: {{.DbUser}}';
     RAISE NOTICE 'Replication user: {{.ReplicationUser}}';
-    RAISE NOTICE 'Monitoring user: datadog_user';
 END $$;
