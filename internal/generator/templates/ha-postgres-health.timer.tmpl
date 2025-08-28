@@ -1,0 +1,22 @@
+[Unit]
+Description=PostgreSQL HA Health Check Timer for replica {{ .Replica.Host }}
+Documentation=https://github.com/HasithDeAlwis/ha-syncgen
+Requires=ha-postgres-health.service
+After=postgresql.service
+
+[Timer]
+# Run health check every 30 seconds
+OnBootSec=2min
+OnUnitActiveSec=30sec
+
+# Ensure timer is persistent across reboots
+Persistent=true
+
+# Prevent timer drift
+AccuracySec=5sec
+
+# Randomize execution slightly to prevent thundering herd
+RandomizedDelaySec=5sec
+
+[Install]
+WantedBy=timers.target
