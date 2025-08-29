@@ -74,26 +74,40 @@ func collectVMFileTransfers(cfg *config.Config) ([]VMFileTransfer, error) {
 	}
 	var transfers []VMFileTransfer
 
-	// Primary
 	primaryDir := filepath.Join(genDir, "primary")
-	fmt.Println("Primary directory:", primaryDir)
-	primaryFiles, _ := listAllFiles(primaryDir)
+	datadogDir := filepath.Join(genDir, "datadog")
+	primaryFiles, err := listAllFiles(primaryDir)
+	if err != nil {
+		return nil, err
+	}
+
+	datadogFiles, err := listAllFiles(datadogDir)
+	if err != nil {
+		return nil, err
+	}
+	primaryFilePath := prependDir("primary", primaryFiles)
+	datadogFilePath := prependDir("datadog", datadogFiles)
+	allPrimaryFiles := append(primaryFilePath, datadogFilePath...)
+
 	transfers = append(transfers, VMFileTransfer{
 		Host:      cfg.Primary.Host,
-		Files:     prependDir("primary", primaryFiles),
+		Files:     allPrimaryFiles,
 		RemoteDir: "/syncgen",
 	})
 
-	// Replicas
 	for _, replica := range cfg.Replicas {
 		replicaDir := filepath.Join(genDir, "replica-"+replica.Host)
 		replicaFiles, _ := listAllFiles(replicaDir)
+		replicaFilePath := prependDir("replica-"+replica.Host, replicaFiles)
+		datadogFilePath := prependDir("datadog", datadogFiles)
+		allReplicaFiles := append(replicaFilePath, datadogFilePath...)
 		transfers = append(transfers, VMFileTransfer{
 			Host:      replica.Host,
-			Files:     prependDir("replica-"+replica.Host, replicaFiles),
+			Files:     allReplicaFiles,
 			RemoteDir: "/syncgen",
 		})
 	}
+
 	return transfers, nil
 }
 
@@ -129,7 +143,6 @@ func GenerateSyncgenTransferScripts(cfg *config.Config, genDir string) error {
 	if !okKey || sshKeyPath == "" {
 		return fmt.Errorf("SSH_KEY_PATH variable is not set in your .env file")
 	}
-	data.PrettyPrint()
 
 	if err != nil {
 		return err
