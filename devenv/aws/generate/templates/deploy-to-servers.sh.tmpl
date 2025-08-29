@@ -8,6 +8,7 @@ set -e  # Exit on any error
 SSH_KEY_PATH={{.SSHKeyPath}}
 SSH_USER={{.SSHUser}}
 GENERATED_DIR="./generated"
+ROOT_GENERATED_DIR="../../generated"
 
 # Colors for output
 RED='\033[0;31m'
@@ -48,9 +49,11 @@ test_ssh_connection $PRIMARY_HOST
 
 log_info "Copying 01-setup-primary.sql to $PRIMARY_HOST:/home/ec2-user/"
 scp -i $SSH_KEY_PATH $GENERATED_DIR/01-setup-primary.sql $SSH_USER@$PRIMARY_HOST:/home/ec2-user/
+scp -i $SSH_KEY_PATH $ROOT_GENERATED_DIR/datadog/datadog.sql $SSH_USER@$PRIMARY_HOST:/home/ec2-user/
 
 log_info "Running setup on $PRIMARY_HOST"
 ssh -i $SSH_KEY_PATH $SSH_USER@$PRIMARY_HOST "sudo mv /home/ec2-user/01-setup-primary.sql /var/lib/pgsql/ && sudo -u postgres psql -d postgres -f /var/lib/pgsql/01-setup-primary.sql"
+ssh -i $SSH_KEY_PATH $SSH_USER@$PRIMARY_HOST "sudo mv /home/ec2-user/datadog.sql /var/lib/pgsql/ && sudo -u postgres psql -d postgres -f /var/lib/pgsql/datadog.sql"
 
 # Deploy SQL scripts to replicas
 {{range $i, $replica := .Replicas}}
@@ -61,8 +64,10 @@ test_ssh_connection $REPLICA_HOST
 
 log_info "Copying $REPLICA_SQL to $REPLICA_HOST:/home/ec2-user/"
 scp -i $SSH_KEY_PATH $GENERATED_DIR/$REPLICA_SQL $SSH_USER@$REPLICA_HOST:/home/ec2-user/
+scp -i $SSH_KEY_PATH $ROOT_GENERATED_DIR/datadog/datadog.sql $SSH_USER@$REPLICA_HOST:/home/ec2-user/
 
 log_info "Running setup on $REPLICA_HOST"
 ssh -i $SSH_KEY_PATH $SSH_USER@$REPLICA_HOST "sudo mv /home/ec2-user/$REPLICA_SQL /var/lib/pgsql/ && sudo -u postgres psql -d postgres -f /var/lib/pgsql/$REPLICA_SQL"
+ssh -i $SSH_KEY_PATH $SSH_USER@$REPLICA_HOST "sudo mv /home/ec2-user/datadog.sql /var/lib/pgsql/ && sudo -u postgres psql -d postgres -f /var/lib/pgsql/datadog.sql"
 {{end}}
 
