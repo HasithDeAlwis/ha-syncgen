@@ -1,0 +1,41 @@
+---
+title: CLI Reference
+sidebar_position: 2
+---
+
+# CLI Reference
+
+This page documents all available commands, flags, and usage examples for the `syncgen` CLI tool.
+
+## Usage
+
+```sh
+syncgen [command] [flags]
+```
+
+## Commands
+
+### `syncgen build [config file]`
+- **Description:** Generate HA scripts and configuration from a cluster YAML file.
+- **Example:**
+  ```sh
+  syncgen build cluster.yaml
+  ```
+- **Flags:**
+  - _None yet, but planned: `--output`, `--verbose`, `--dry-run`_
+
+### `syncgen validate [config file]`
+- **Description:** Validate the configuration file without generating files.
+- **Example:**
+  ```sh
+  syncgen validate cluster.yaml
+  ```
+
+### Planned Commands
+- `syncgen status` — Check current HA status _(coming soon)_
+- `syncgen failover` — Manual failover to replica _(coming soon)_
+
+## Global Flags (Planned)
+- `--config` — Specify custom config location
+- `--verbose` — Enable verbose output
+- `--dry-run` — Preview operations without making changes

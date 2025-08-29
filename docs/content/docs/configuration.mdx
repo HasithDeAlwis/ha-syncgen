@@ -1,337 +1,80 @@
+----
+This page documents all configuration options for `syncgen`.
+
+## Top-Level Keys
+### `primary` (object, required)
+- `host` (string, required): IP or hostname of the primary server
+- `port` (integer, default: 5432): PostgreSQL port
+- `data_directory` (string, required): Path to PostgreSQL data directory
+- `db_name` (string, required): Name of the main database
+- `db_user` (string, required): Admin user for the database
+- `db_password` (string, required): Password for `db_user`
+- `replication_user` (string, required): Replication user name
+- `replication_password` (string, required): Replication user password
+
+### `replicas` (array of objects, required)
+Each replica must have a unique `replication_slot` name.
+- `host` (string, required): IP or hostname of the replica
+- `port` (integer, default: 5432): PostgreSQL port
+- `replication_slot` (string, required): Unique slot name for this replica
+- `sync_mode` (string, required): `sync` or `async`
+- `db_user` (string, required): Admin user for the replica
+- `db_password` (string, required): Password for `db_user`
+
+### `options` (object, required)
+- `promote_on_failure` (bool, default: true): Auto-promote replica on primary failure
+- `wal_level` (string, default: `replica`): WAL verbosity (`replica`, `logical`, etc.)
+- `max_wal_senders` (integer, default: 3): Max WAL sender processes
+- `wal_keep_size` (string, default: `1GB`): WAL retention size (e.g., `1GB`, `2GB`)
+- `hot_standby` (bool, default: true): Allow read queries on replicas
+- `synchronous_commit` (string, default: `on`): Synchronous commit mode (`on`, `off`, `remote_write`, etc.)
+
+### `monitoring` (object, optional)
+- `datadog` (object, optional):
+	- `enabled` (bool, default: false): Enable Datadog integration
+	- `api_key` (string, required if enabled): Datadog API key
+	- `site` (string, default: `datadoghq.com`): Datadog site
+	- `datadog_user_password` (string, required if enabled): Password for Datadog agent user
+
 ---
-title: Configuration Reference
-description: Complete YAML configuration options for ha-syncgen
----
-
-import { Callout } from 'fumadocs-ui/components/callout';
-
-# Configuration Reference
-
-Complete reference for ha-syncgen YAML configuration files.
-
-## Configuration Schema
-
-ha-syncgen uses YAML configuration files to define PostgreSQL HA clusters. Here's the complete schema:
-
-```yaml
-cluster:
-  name: string                    # Cluster identifier
-
-primary:
-  host: string                    # Primary server IP/hostname
-  port: integer                   # PostgreSQL port (default: 5432)
-  data_directory: string          # PostgreSQL data directory path
-  replication_user: string        # Replication user name
-  replication_password: string    # Replication user password
-
-replicas:
-  - host: string                  # Replica server IP/hostname
-    port: integer                 # PostgreSQL port (default: 5432)
-    replication_slot: string      # Unique replication slot name
-    sync_mode: string             # "sync" or "async"
-
-postgresql:                       # PostgreSQL configuration
-  wal_level: string              # WAL verbosity level
-  max_wal_senders: integer       # Maximum WAL sender processes
-  wal_keep_size: string          # WAL retention size
-  hot_standby: boolean           # Enable hot standby
-  synchronous_commit: string     # Synchronous commit mode
-
-monitoring:                       # Health monitoring options
-  health_check_interval: string  # Check interval (e.g., "30s")
-  auto_promote_on_primary_failure: boolean
-```
-
-## Required Fields
-
-### Cluster Section
-
-```yaml
-cluster:
-  name: "production-postgres-ha"    # Required: Unique cluster identifier
-```
-
-- **name**: String identifier for your cluster. Used in generated file names and logs.
-
-### Primary Section
-
+## Example
 ```yaml
 primary:
-  host: "10.0.1.10"                          # Required: Primary server address
-  port: 5432                                 # Optional: Default 5432
-  data_directory: "/var/lib/postgresql/data" # Required: PostgreSQL data path
-  replication_user: "replicator"             # Required: Replication user name
-  replication_password: "secure_password"   # Required: Replication password
-```
-
-**Required Fields:**
-- **host**: IP address or hostname of the primary PostgreSQL server
-- **data_directory**: Full path to PostgreSQL data directory
-- **replication_user**: Username for replication connections
-- **replication_password**: Password for replication user
-
-**Optional Fields:**
-- **port**: PostgreSQL listening port (default: 5432)
-
-### Replicas Section
-
-```yaml
-replicas:
-  - host: "10.0.1.11"              # Required: Replica server address
-    port: 5432                     # Optional: Default 5432
-    replication_slot: "replica_1"  # Required: Unique slot name
-    sync_mode: "async"             # Required: "sync" or "async"
-```
-
-**Required Fields:**
-- **host**: IP address or hostname of the replica server
-- **replication_slot**: Unique name for the replication slot
-- **sync_mode**: Synchronization mode ("sync" or "async")
-
-**Optional Fields:**
-- **port**: PostgreSQL listening port (default: 5432)
-
-<Callout type="warning">
-  Each replica must have a unique `replication_slot` name. Duplicate names will cause replication failures.
-</Callout>
-
-## Optional Sections
-
-### PostgreSQL Configuration
-
-Controls PostgreSQL-specific settings for streaming replication:
-
-```yaml
-postgresql:
-  wal_level: "replica"           # WAL verbosity: minimal, replica, logical
-  max_wal_senders: 3             # Number of concurrent WAL senders
-  wal_keep_size: "1GB"           # WAL retention size
-  hot_standby: true              # Allow read queries on replicas
-  synchronous_commit: "on"       # Synchronous commit mode
-```
-
-**Default Values:**
-- **wal_level**: "replica"
-- **max_wal_senders**: 3
-- **wal_keep_size**: "1GB" 
-- **hot_standby**: true
-- **synchronous_commit**: "on"
-
-**WAL Level Options:**
-- `minimal`: Basic WAL logging (no replication)
-- `replica`: Supports physical replication (recommended)
-- `logical`: Supports logical replication
-
-**Synchronous Commit Options:**
-- `off`: Asynchronous commit (fastest, least safe)
-- `local`: Wait for local flush (default)
-- `remote_write`: Wait for replica to receive WAL
-- `remote_apply`: Wait for replica to apply WAL (safest, slowest)
-- `on`: Equivalent to `local`
-
-### Monitoring Configuration
-
-Controls health check and failover behavior:
-
-```yaml
-monitoring:
-  health_check_interval: "30s"              # How often to check health
-  auto_promote_on_primary_failure: true     # Auto-promote replica on failure
-```
-
-**Default Values:**
-- **health_check_interval**: "30s"
-- **auto_promote_on_primary_failure**: true
-
-**Interval Format:**
-- Use Go duration format: "30s", "1m", "5m30s"
-- Minimum recommended: "10s"
-- Maximum recommended: "5m"
-
-## Complete Example
-
-Here's a complete configuration with all options:
-
-```yaml
-cluster:
-  name: "production-postgres-ha-cluster"
-  
-primary:
-  host: "10.0.1.10"
-  port: 5432
-  data_directory: "/var/lib/postgresql/14/data"
-  replication_user: "replicator"
-  replication_password: "super_secure_password_2025"
+	host: 10.0.0.1
+	port: 5432
+	data_directory: /var/lib/postgresql/data
+	db_name: postgres
+	db_user: postgres
+	db_password: change_this_admin_password
+	replication_user: replicator
+	replication_password: secure_password_here
 
 replicas:
-  - host: "10.0.1.11"
-    port: 5432
-    replication_slot: "east_replica_slot"
-    sync_mode: "async"
-    
-  - host: "10.0.1.12"
-    port: 5432
-    replication_slot: "west_replica_slot"  
-    sync_mode: "sync"
-    
-  - host: "10.0.2.10"
-    port: 5433
-    replication_slot: "dr_replica_slot"
-    sync_mode: "async"
+	- host: 10.0.0.2
+		port: 5432
+		replication_slot: replica_slot_1
+		sync_mode: async
+		db_user: postgres
+		db_password: change_this_admin_password
+	- host: 10.0.0.3
+		port: 5432
+		replication_slot: replica_slot_2
+		sync_mode: async
+		db_user: postgres
+		db_password: change_this_admin_password
 
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 5
-  wal_keep_size: "2GB"
-  hot_standby: true
-  synchronous_commit: "remote_write"
+options:
+	promote_on_failure: true
+	wal_level: replica
+	max_wal_senders: 3
+	wal_keep_size: 1GB
+	hot_standby: true
+	synchronous_commit: on
 
 monitoring:
-  health_check_interval: "15s"
-  auto_promote_on_primary_failure: true
+	datadog:
+		enabled: true
+		api_key: your_datadog_api_key_here
+		site: datadoghq.com
+		datadog_user_password: change_this_monitoring_password
 ```
-
-## Configuration Validation
-
-Validate your configuration before generating scripts:
-
-```bash
-# Basic validation
-ha-syncgen validate cluster.yaml
-
-# Verbose validation with detailed output
-ha-syncgen validate cluster.yaml --verbose
-
-# Dry run to see what would be generated
-ha-syncgen build cluster.yaml --dry-run
-```
-
-## Environment-Specific Examples
-
-### Development Environment
-```yaml
-cluster:
-  name: "dev-postgres-ha"
-  
-primary:
-  host: "localhost"
-  port: 5432
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "replicator"
-  replication_password: "dev_password"
-
-replicas:
-  - host: "localhost"
-    port: 5433
-    replication_slot: "dev_replica"
-    sync_mode: "async"
-
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 2
-  wal_keep_size: "512MB"
-  hot_standby: true
-  synchronous_commit: "off"  # Faster for dev
-
-monitoring:
-  health_check_interval: "60s"  # Less frequent for dev
-  auto_promote_on_primary_failure: false
-```
-
-### Production Environment
-```yaml
-cluster:
-  name: "prod-postgres-ha"
-  
-primary:
-  host: "db-primary.internal"
-  port: 5432
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "replicator"
-  replication_password: "very_secure_production_password"
-
-replicas:
-  - host: "db-replica1.internal"
-    port: 5432
-    replication_slot: "replica_primary"
-    sync_mode: "sync"  # Synchronous for safety
-    
-  - host: "db-replica2.internal"
-    port: 5432
-    replication_slot: "replica_secondary"
-    sync_mode: "async"  # Async for performance
-
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 5
-  wal_keep_size: "4GB"  # Large for production
-  hot_standby: true
-  synchronous_commit: "remote_apply"  # Safest mode
-
-monitoring:
-  health_check_interval: "10s"  # Frequent checks
-  auto_promote_on_primary_failure: true
-```
-
-### Cloud Environment (AWS/GCP/Azure)
-```yaml
-cluster:
-  name: "cloud-postgres-ha"
-  
-primary:
-  host: "10.0.1.10"  # Private IP
-  port: 5432
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "replicator"
-  replication_password: "cloud_secure_2025"
-
-replicas:
-  - host: "10.0.2.10"  # Different AZ
-    port: 5432
-    replication_slot: "az_a_replica"
-    sync_mode: "async"
-    
-  - host: "10.0.3.10"  # Different AZ
-    port: 5432
-    replication_slot: "az_b_replica"
-    sync_mode: "async"
-
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 4
-  wal_keep_size: "3GB"
-  hot_standby: true
-  synchronous_commit: "remote_write"  # Good balance
-
-monitoring:
-  health_check_interval: "20s"
-  auto_promote_on_primary_failure: true
-```
-
-## Best Practices
-
-### Security
-- Use strong, unique passwords for `replication_password`
-- Consider using environment variables for sensitive values
-- Restrict network access between PostgreSQL servers
-
-### Performance
-- Set `wal_keep_size` based on network latency and load
-- Use `async` mode for read replicas, `sync` for critical replicas
-- Monitor WAL generation rate to size `max_wal_senders`
-
-### Reliability
-- Place replicas in different availability zones
-- Use descriptive `replication_slot` names
-- Test failover procedures regularly
-
-### Monitoring
-- Set `health_check_interval` based on your RTO requirements
-- Enable `auto_promote_on_primary_failure` for automatic failover
-- Monitor systemd logs for health check results
-
-## Next Steps
-
-- [Generated Scripts](/docs/generated-scripts) - Understand what gets created
-- [Troubleshooting](/docs/troubleshooting) - Common issues and solutions
-- [Roadmap](/docs/roadmap) - Future development plans
