@@ -5,9 +5,26 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-
 	"syncgen/internal/config"
+	"text/template"
 )
+
+// FileSpec defines a file generation specification
+type FileSpec struct {
+	Tmpl     *template.Template
+	Dir      string
+	Filename string
+	Data     map[string]interface{}
+}
+
+// renderTemplate renders a template to a file in the given directory
+func (g *Generator) renderTemplate(tmpl *template.Template, dir, filename string, data map[string]interface{}) error {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	outputFile := filepath.Join(dir, filename)
+	return executeTemplateToFile(tmpl, data, outputFile, filename)
+}
 
 // Generator handles the generation of all configuration files
 type Generator struct {
