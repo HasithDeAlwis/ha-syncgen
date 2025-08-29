@@ -42,6 +42,7 @@ func (g *Generator) generatePostgreSQLConfig(primaryDir string, postgresqlConfTm
 		"MaxReplicationSlots": len(g.config.Replicas) + 2,
 		"WalKeepSize":         g.config.Options.WalKeepSize,
 		"Port":                g.config.Primary.Port,
+		"HasMonitoring":       g.config.Monitoring.Datadog.Enabled,
 	}
 	outputFile := filepath.Join(primaryDir, "postgresql.conf.custom")
 	return executeTemplateToFile(postgresqlConfTmpl, data, outputFile, "postgres.conf")
