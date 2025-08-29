@@ -25,4 +25,6 @@ yarn-error.log*
 # others
 .env*.local
 .vercel
+# Build output for Next.js docs site — do not commit
+.next/
 next-env.d.ts
