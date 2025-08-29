@@ -55,11 +55,22 @@ func (g *Generator) GenerateAll() error {
 		if err != nil {
 			return fmt.Errorf("failed to parse datadog-install.sh template: %w", err)
 		}
+
 		datadogSQLTmpl, err := parseTemplateByName(tmplDir, "datadog.sql.tmpl")
 		if err != nil {
 			return fmt.Errorf("failed to parse datadog.sql template: %w", err)
 		}
+
+		datadogConfTmpl, err := parseTemplateByName(tmplDir, "datadog-conf.yaml.tmpl")
+		if err != nil {
+			return fmt.Errorf("failed to parse datadog-conf.yaml template: %w", err)
+		}
+
+		if err := g.generateDatadogFiles(datadogInstallTmpl, datadogSQLTmpl, datadogConfTmpl); err != nil {
+			return fmt.Errorf("failed to generate Datadog files: %w", err)
+		}
 	}
+
 	// Generate replica-specific files
 	for _, replica := range g.config.Replicas {
 		if err := g.generateReplicaFiles(replica); err != nil {
