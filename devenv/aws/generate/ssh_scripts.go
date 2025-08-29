@@ -66,6 +66,14 @@ func getRootGeneratedDir() (string, error) {
 	genDir := filepath.Join(projectRoot, "generated")
 	return genDir, nil
 }
+func collectAndPrepend(genDir, name string) ([]string, error) {
+	dir := filepath.Join(genDir, name)
+	files, err := listAllFiles(dir)
+	if err != nil {
+		return nil, err
+	}
+	return prependDir(name, files), nil
+}
 
 func collectVMFileTransfers(cfg *config.Config) ([]VMFileTransfer, error) {
 	genDir, err := getRootGeneratedDir()
@@ -74,20 +82,15 @@ func collectVMFileTransfers(cfg *config.Config) ([]VMFileTransfer, error) {
 	}
 	var transfers []VMFileTransfer
 
-	primaryDir := filepath.Join(genDir, "primary")
-	datadogDir := filepath.Join(genDir, "datadog")
-	primaryFiles, err := listAllFiles(primaryDir)
+	primaryFiles, err := collectAndPrepend(genDir, "primary")
 	if err != nil {
 		return nil, err
 	}
-
-	datadogFiles, err := listAllFiles(datadogDir)
+	datadogFiles, err := collectAndPrepend(genDir, "datadog")
 	if err != nil {
 		return nil, err
 	}
-	primaryFilePath := prependDir("primary", primaryFiles)
-	datadogFilePath := prependDir("datadog", datadogFiles)
-	allPrimaryFiles := append(primaryFilePath, datadogFilePath...)
+	allPrimaryFiles := append(primaryFiles, datadogFiles...)
 
 	transfers = append(transfers, VMFileTransfer{
 		Host:      cfg.Primary.Host,
@@ -96,11 +99,11 @@ func collectVMFileTransfers(cfg *config.Config) ([]VMFileTransfer, error) {
 	})
 
 	for _, replica := range cfg.Replicas {
-		replicaDir := filepath.Join(genDir, "replica-"+replica.Host)
-		replicaFiles, _ := listAllFiles(replicaDir)
-		replicaFilePath := prependDir("replica-"+replica.Host, replicaFiles)
-		datadogFilePath := prependDir("datadog", datadogFiles)
-		allReplicaFiles := append(replicaFilePath, datadogFilePath...)
+		replicaFiles, err := collectAndPrepend(genDir, "replica-"+replica.Host)
+		if err != nil {
+			return nil, err
+		}
+		allReplicaFiles := append(replicaFiles, datadogFiles...)
 		transfers = append(transfers, VMFileTransfer{
 			Host:      replica.Host,
 			Files:     allReplicaFiles,
