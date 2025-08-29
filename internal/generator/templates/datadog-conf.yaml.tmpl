@@ -1,0 +1,14 @@
+init_config:
+
+instances:
+  - host: {{ .Host }}
+    port:  {{ .Port }}
+    username: {{ .DbUser }}
+    password: {{ .DbPassword }}
+    dbname: {{ .DbName }}
+    ssl: false
+logs:
+  - type: file
+    path: {{ .Datadirectory }}/archive/logs
+    source: postgresql
+    service: postgres
