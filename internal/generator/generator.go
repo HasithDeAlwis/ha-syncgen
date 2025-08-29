@@ -50,6 +50,16 @@ func (g *Generator) GenerateAll() error {
 		return fmt.Errorf("failed to generate primary files: %w", err)
 	}
 
+	if g.config.Monitoring.Datadog.Enabled {
+		datadogInstallTmpl, err := parseTemplateByName(tmplDir, "datadog-install.sh.tmpl")
+		if err != nil {
+			return fmt.Errorf("failed to parse datadog-install.sh template: %w", err)
+		}
+		datadogSQLTmpl, err := parseTemplateByName(tmplDir, "datadog.sql.tmpl")
+		if err != nil {
+			return fmt.Errorf("failed to parse datadog.sql template: %w", err)
+		}
+	}
 	// Generate replica-specific files
 	for _, replica := range g.config.Replicas {
 		if err := g.generateReplicaFiles(replica); err != nil {
