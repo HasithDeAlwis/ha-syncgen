@@ -459,36 +459,6 @@ Follow this order when deploying your PostgreSQL HA cluster:
    sudo systemctl enable ha-postgres-health.timer
    sudo systemctl start ha-postgres-health.timer
    ```
-
-## Customization
-
-The generated scripts can be customized for your environment:
-
-### Environment Variables
-Many scripts support environment variables for customization:
-```bash
-export PGPASSWORD="your_password"
-export REPLICATION_TIMEOUT="60"
-export LOG_LEVEL="debug"
-```
-
-### Path Modifications
-Update paths in scripts for your specific installation:
-```bash
-# Modify data directory paths
-sed -i 's|/var/lib/postgresql/data|/custom/postgres/path|g' setup_replication.sh
-
-# Update log file locations  
-sed -i 's|/var/log/ha-syncgen|/custom/log/path|g' health_check.sh
-```
-
-### Integration with Configuration Management
-The generated scripts work well with:
-- **Ansible**: Use the scripts as tasks in playbooks
-- **Puppet**: Execute scripts via exec resources
-- **Chef**: Run scripts in recipes
-- **SaltStack**: Include scripts in state files
-
 ## Next Steps
 
 - [Configuration Reference](/docs/configuration) - Learn all configuration options  

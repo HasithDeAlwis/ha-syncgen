@@ -13,18 +13,24 @@ TF_DIR := terraform
 .PHONY: help init-env aws scripts deploy syncgen clean full-deploy full-stack dev-cycle init plan apply destroy
 
 help: ## Show this help
+	@printf "\nAWS Dev Environment Makefile\n"
+	@printf "----------------------------------------\n"
 	@printf "Available targets:\n"
-	@printf "  %-12s %s\n" "init-env"    "Setup terraform configuration (terraform.tfvars)"
-	@printf "  %-12s %s\n" "aws"         "Deploy AWS infrastructure (init + plan + apply)"
-	@printf "  %-12s %s\n" "scripts"     "Generate ALL deployment files from terraform state"
-	@printf "  %-12s %s\n" "deploy"      "Deploy Docker containers to AWS servers"
-	@printf "  %-12s %s\n" "syncgen"     "Generate HA sync scripts using main syncgen CLI"
-	@printf "  %-12s %s\n" "clean"       "Destroy infra and remove local terraform state"
-	@printf "  %-12s %s\n" "syncgen-transfer"  "Generate scripts to transfer and run syncgen scripts on the VMs"
-	@printf ""
-	@printf "Convenience targets:\n"
-	@printf "  %-12s %s\n" "full-deploy" "Complete deployment: init-env → aws → scripts → deploy"
-	@printf "  %-12s %s\n" "dev-cycle"   "Quick redeploy: scripts → deploy (assumes AWS exists)"
+	@printf "  %-26s %s\n" "init-env" "Setup terraform configuration (terraform.tfvars)"
+	@printf "  %-26s %s\n" "aws" "Provision AWS infrastructure (init + plan + apply)"
+	@printf "  %-26s %s\n" "scripts" "Generate all deployment files from terraform state"
+	@printf "  %-26s %s\n" "syncgen" "Build and run syncgen CLI to generate HA scripts"
+	@printf "  %-26s %s\n" "deploy" "Deploy PostgreSQL containers and scripts to AWS servers"
+	@printf "  %-26s %s\n" "syncgen-transfer" "Generate transfer/run scripts for HA setup"
+	@printf "  %-26s %s\n" "syncgen-transfer-execute" "Transfer and execute all HA scripts on VMs"
+	@printf "  %-26s %s\n" "clean" "Destroy infra and remove all generated files/state"
+	@printf "\nConvenience targets:\n"
+	@printf "  %-26s %s\n" "full-deploy" "Full flow: init-env → aws → scripts → deploy"
+	@printf "  %-26s %s\n" "full-stack" "Full deploy + syncgen + transfer + execute (end-to-end HA)"
+	@printf "  %-26s %s\n" "dev-cycle" "Quick redeploy: scripts → deploy (assumes AWS exists)"
+	@printf "\nLegacy targets:\n"
+	@printf "  %-26s %s\n" "config" "Legacy: now same as scripts"
+	@printf "  %-26s %s\n" "setup" "Legacy: now same as full-stack"
 
 ## Setup terraform configuration
 init-env: ## Setup terraform configuration from example

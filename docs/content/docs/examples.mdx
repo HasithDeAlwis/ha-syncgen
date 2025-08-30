@@ -1,551 +1,204 @@
 ---
 title: Examples
-description: Real-world configuration examples for different use cases
+description: Real-world configuration examples for PostgreSQL High Availability yaml cluster
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout';
-import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+Here are five valuable real-world configuration examples for `syncgen`.
 
-# Examples
+---
 
-Real-world configuration examples for different PostgreSQL HA scenarios.
-
-## Basic Two-Node Setup
-
-Simple primary-replica configuration for getting started.
+## 1. Minimal 2-Replica Cluster
 
 ```yaml
-cluster:
-  name: "basic-postgres-ha"
-  
 primary:
-  host: "10.0.1.10"
-  port: 5432
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "replicator"
-  replication_password: "secure_password_123"
+	host: 10.0.0.1
+	port: 5432
+	data_directory: /var/lib/postgresql/data
+	db_name: postgres
+	db_user: postgres
+	db_password: password
+	replication_user: replicator
+	replication_password: replica_pw
 
 replicas:
-  - host: "10.0.1.11"
-    port: 5432
-    replication_slot: "replica_basic"
-    sync_mode: "async"
+	- host: 10.0.0.2
+		port: 5432
+		replication_slot: replica1
+		sync_mode: async
+		db_user: postgres
+		db_password: password
+	- host: 10.0.0.3
+		port: 5432
+		replication_slot: replica2
+		sync_mode: async
+		db_user: postgres
+		db_password: password
 
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 2
-  wal_keep_size: "1GB"
-  hot_standby: true
-  synchronous_commit: "on"
+options:
+	promote_on_failure: true
+	wal_level: replica
+	max_wal_senders: 3
+	wal_keep_size: 1GB
+	hot_standby: true
+	synchronous_commit: on
+```
+
+---
+
+## 2. Production Cluster with Synchronous and Asynchronous Replicas
+
+```yaml
+primary:
+	host: db-primary.internal
+	port: 5432
+	data_directory: /var/lib/postgresql/data
+	db_name: prod_db
+	db_user: admin
+	db_password: prod_pw
+	replication_user: replicator
+	replication_password: prod_replica_pw
+
+replicas:
+	- host: db-replica1.internal
+		port: 5432
+		replication_slot: prod_sync
+		sync_mode: sync
+		db_user: admin
+		db_password: prod_pw
+	- host: db-replica2.internal
+		port: 5432
+		replication_slot: prod_async
+		sync_mode: async
+		db_user: admin
+		db_password: prod_pw
+
+options:
+	promote_on_failure: true
+	wal_level: replica
+	max_wal_senders: 5
+	wal_keep_size: 4GB
+	hot_standby: true
+	synchronous_commit: remote_apply
 
 monitoring:
-  health_check_interval: "30s"
-  auto_promote_on_primary_failure: true
+	datadog:
+		enabled: true
+		api_key: prod_datadog_api_key
+		site: datadoghq.com
+		datadog_user_password: prod_monitor_pw
 ```
 
-<Callout type="info">
-  This basic setup provides high availability with automatic failover for small to medium applications.
-</Callout>
+---
 
-## Multi-Replica Production Setup
-
-Production-ready configuration with multiple replicas for read scaling.
+## 3. Development Cluster (Single Replica, Fast Settings)
 
 ```yaml
-cluster:
-  name: "production-postgres-ha"
-  
 primary:
-  host: "db-primary.company.com"
-  port: 5432
-  data_directory: "/var/lib/postgresql/14/data"
-  replication_user: "replicator"
-  replication_password: "very_secure_production_password_2025"
+	host: localhost
+	port: 5432
+	data_directory: /var/lib/postgresql/data
+	db_name: dev_db
+	db_user: dev
+	db_password: dev_pw
+	replication_user: dev_repl
+	replication_password: dev_repl_pw
 
 replicas:
-  # Synchronous replica for critical data
-  - host: "db-replica1.company.com"
-    port: 5432
-    replication_slot: "replica_sync_primary"
-    sync_mode: "sync"
-    
-  # Asynchronous replicas for read scaling
-  - host: "db-replica2.company.com"
-    port: 5432
-    replication_slot: "replica_async_1"
-    sync_mode: "async"
-    
-  - host: "db-replica3.company.com"
-    port: 5432
-    replication_slot: "replica_async_2"
-    sync_mode: "async"
+	- host: localhost
+		port: 5433
+		replication_slot: dev_replica
+		sync_mode: async
+		db_user: dev
+		db_password: dev_pw
 
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 5
-  wal_keep_size: "4GB"
-  hot_standby: true
-  synchronous_commit: "remote_apply"
+options:
+	promote_on_failure: false
+	wal_level: replica
+	max_wal_senders: 2
+	wal_keep_size: 512MB
+	hot_standby: true
+	synchronous_commit: off
+```
+
+---
+
+## 4. Multi-Region Cloud Cluster (AWS/GCP/Azure)
+
+```yaml
+primary:
+	host: 10.0.1.10
+	port: 5432
+	data_directory: /var/lib/pgsql/data
+	db_name: cloud_db
+	db_user: cloud_admin
+	db_password: cloud_pw
+	replication_user: cloud_repl
+	replication_password: cloud_repl_pw
+
+replicas:
+	- host: 10.0.2.10
+		port: 5432
+		replication_slot: az_a
+		sync_mode: async
+		db_user: cloud_admin
+		db_password: cloud_pw
+	- host: 10.0.3.10
+		port: 5432
+		replication_slot: az_b
+		sync_mode: async
+		db_user: cloud_admin
+		db_password: cloud_pw
+
+options:
+	promote_on_failure: true
+	wal_level: replica
+	max_wal_senders: 4
+	wal_keep_size: 3GB
+	hot_standby: true
+	synchronous_commit: remote_write
 
 monitoring:
-  health_check_interval: "15s"
-  auto_promote_on_primary_failure: true
+	datadog:
+		enabled: true
+		api_key: cloud_datadog_api_key
+		site: datadoghq.com
+		datadog_user_password: cloud_monitor_pw
 ```
 
-## Development Environment
+---
 
-Lightweight configuration for development and testing.
+## 5. High-Security Cluster (Unique Users, Strong Passwords, No Monitoring)
 
 ```yaml
-cluster:
-  name: "dev-postgres-ha"
-  
 primary:
-  host: "localhost"
-  port: 5432
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "replicator"
-  replication_password: "dev_password"
+	host: 192.168.1.10
+	port: 5432
+	data_directory: /secure/pg/data
+	db_name: secure_db
+	db_user: secure_admin
+	db_password: "!@#SuperStrongPW2025"
+	replication_user: secure_repl
+	replication_password: "!@#ReplPW2025"
 
 replicas:
-  - host: "localhost"
-    port: 5433
-    replication_slot: "dev_replica"
-    sync_mode: "async"
+	- host: 192.168.1.11
+		port: 5432
+		replication_slot: secure_replica1
+		sync_mode: sync
+		db_user: secure_replica
+		db_password: "!@#ReplicaPW2025"
+	- host: 192.168.1.12
+		port: 5432
+		replication_slot: secure_replica2
+		sync_mode: async
+		db_user: secure_replica
+		db_password: "!@#ReplicaPW2025"
 
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 2
-  wal_keep_size: "512MB"
-  hot_standby: true
-  synchronous_commit: "off"  # Faster for development
-
-monitoring:
-  health_check_interval: "60s"
-  auto_promote_on_primary_failure: false  # Manual failover in dev
+options:
+	promote_on_failure: true
+	wal_level: logical
+	max_wal_senders: 6
+	wal_keep_size: 2GB
+	hot_standby: true
+	synchronous_commit: on
 ```
-
-<Callout type="warning">
-  Development configurations prioritize speed over durability. Don't use in production!
-</Callout>
-
-## Cross-Datacenter Setup
-
-Configuration for replicas across different datacenters or regions.
-
-```yaml
-cluster:
-  name: "multi-dc-postgres-ha"
-  
-primary:
-  host: "10.1.1.10"  # DC1 - Primary datacenter
-  port: 5432
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "replicator"
-  replication_password: "cross_dc_secure_password"
-
-replicas:
-  # Same datacenter - synchronous for safety
-  - host: "10.1.1.11"  # DC1 - Same as primary
-    port: 5432
-    replication_slot: "dc1_replica"
-    sync_mode: "sync"
-    
-  # Different datacenter - asynchronous due to latency
-  - host: "10.2.1.10"  # DC2 - Different datacenter
-    port: 5432
-    replication_slot: "dc2_replica"
-    sync_mode: "async"
-    
-  # DR site - asynchronous
-  - host: "10.3.1.10"  # DC3 - Disaster recovery site
-    port: 5432
-    replication_slot: "dr_replica"
-    sync_mode: "async"
-
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 4
-  wal_keep_size: "8GB"  # Larger for cross-DC latency
-  hot_standby: true
-  synchronous_commit: "remote_write"
-
-monitoring:
-  health_check_interval: "20s"
-  auto_promote_on_primary_failure: true
-```
-
-## Cloud-Optimized Configuration
-
-Configuration optimized for cloud environments (AWS, GCP, Azure).
-
-<Tabs>
-<Tab value="aws" label="AWS">
-
-```yaml
-cluster:
-  name: "aws-postgres-ha"
-  
-primary:
-  host: "10.0.1.10"  # Private subnet AZ-a
-  port: 5432
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "replicator"
-  replication_password: "aws_secure_2025"
-
-replicas:
-  - host: "10.0.2.10"  # Private subnet AZ-b
-    port: 5432
-    replication_slot: "aws_replica_azb"
-    sync_mode: "async"
-    
-  - host: "10.0.3.10"  # Private subnet AZ-c
-    port: 5432
-    replication_slot: "aws_replica_azc"
-    sync_mode: "async"
-
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 3
-  wal_keep_size: "3GB"
-  hot_standby: true
-  synchronous_commit: "remote_write"
-
-monitoring:
-  health_check_interval: "20s"
-  auto_promote_on_primary_failure: true
-```
-
-</Tab>
-
-<Tab value="gcp" label="Google Cloud">
-
-```yaml
-cluster:
-  name: "gcp-postgres-ha"
-  
-primary:
-  host: "10.128.0.10"  # us-central1-a
-  port: 5432
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "replicator"
-  replication_password: "gcp_secure_2025"
-
-replicas:
-  - host: "10.128.0.11"  # us-central1-b
-    port: 5432
-    replication_slot: "gcp_replica_b"
-    sync_mode: "async"
-    
-  - host: "10.128.0.12"  # us-central1-c
-    port: 5432
-    replication_slot: "gcp_replica_c"
-    sync_mode: "async"
-
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 3
-  wal_keep_size: "3GB"
-  hot_standby: true
-  synchronous_commit: "remote_write"
-
-monitoring:
-  health_check_interval: "20s"
-  auto_promote_on_primary_failure: true
-```
-
-</Tab>
-
-<Tab value="azure" label="Azure">
-
-```yaml
-cluster:
-  name: "azure-postgres-ha"
-  
-primary:
-  host: "10.0.1.10"  # East US
-  port: 5432
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "replicator"
-  replication_password: "azure_secure_2025"
-
-replicas:
-  - host: "10.0.2.10"  # East US 2
-    port: 5432
-    replication_slot: "azure_replica_eastus2"
-    sync_mode: "async"
-    
-  - host: "10.0.3.10"  # Central US
-    port: 5432
-    replication_slot: "azure_replica_central"
-    sync_mode: "async"
-
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 3
-  wal_keep_size: "3GB"
-  hot_standby: true
-  synchronous_commit: "remote_write"
-
-monitoring:
-  health_check_interval: "20s"
-  auto_promote_on_primary_failure: true
-```
-
-</Tab>
-</Tabs>
-
-## High-Performance Setup
-
-Configuration optimized for high-throughput applications.
-
-```yaml
-cluster:
-  name: "high-performance-postgres"
-  
-primary:
-  host: "db-primary-perf.company.com"
-  port: 5432
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "replicator"
-  replication_password: "high_perf_secure_password"
-
-replicas:
-  # Multiple async replicas for read distribution
-  - host: "db-read1.company.com"
-    port: 5432
-    replication_slot: "read_replica_1"
-    sync_mode: "async"
-    
-  - host: "db-read2.company.com"
-    port: 5432
-    replication_slot: "read_replica_2"
-    sync_mode: "async"
-    
-  - host: "db-read3.company.com"
-    port: 5432
-    replication_slot: "read_replica_3"
-    sync_mode: "async"
-    
-  # One sync replica for safety
-  - host: "db-standby.company.com"
-    port: 5432
-    replication_slot: "standby_replica"
-    sync_mode: "sync"
-
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 6
-  wal_keep_size: "10GB"  # Large buffer for high throughput
-  hot_standby: true
-  synchronous_commit: "local"  # Balance between safety and performance
-
-monitoring:
-  health_check_interval: "10s"  # Frequent checks for fast failover
-  auto_promote_on_primary_failure: true
-```
-
-## Testing Configuration
-
-Minimal configuration for testing ha-syncgen functionality.
-
-```yaml
-cluster:
-  name: "test-cluster"
-  
-primary:
-  host: "127.0.0.1"
-  port: 5433
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "replicator"
-  replication_password: "test123"
-
-replicas:
-  - host: "127.0.0.1"
-    port: 5434
-    replication_slot: "test_replica_1"
-    sync_mode: "async"
-    
-  - host: "127.0.0.1"
-    port: 5435
-    replication_slot: "test_replica_2"
-    sync_mode: "async"
-
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 3
-  wal_keep_size: "1GB"
-  hot_standby: true
-  synchronous_commit: "on"
-
-monitoring:
-  health_check_interval: "30s"
-  auto_promote_on_primary_failure: true
-```
-
-<Callout type="info">
-  This configuration uses different ports on the same host for testing purposes.
-</Callout>
-
-## Custom Data Directory Paths
-
-Examples for different PostgreSQL installations and custom paths.
-
-<Tabs>
-<Tab value="ubuntu" label="Ubuntu/Debian">
-
-```yaml
-cluster:
-  name: "ubuntu-postgres-ha"
-  
-primary:
-  host: "10.0.1.10"
-  port: 5432
-  data_directory: "/var/lib/postgresql/14/main"  # Ubuntu default
-  replication_user: "replicator"
-  replication_password: "ubuntu_secure_password"
-
-replicas:
-  - host: "10.0.1.11"
-    port: 5432
-    replication_slot: "ubuntu_replica"
-    sync_mode: "async"
-```
-
-</Tab>
-
-<Tab value="centos" label="CentOS/RHEL">
-
-```yaml
-cluster:
-  name: "centos-postgres-ha"
-  
-primary:
-  host: "10.0.1.10"
-  port: 5432
-  data_directory: "/var/lib/pgsql/14/data"  # CentOS default
-  replication_user: "replicator"
-  replication_password: "centos_secure_password"
-
-replicas:
-  - host: "10.0.1.11"
-    port: 5432
-    replication_slot: "centos_replica"
-    sync_mode: "async"
-```
-
-</Tab>
-
-<Tab value="custom" label="Custom Installation">
-
-```yaml
-cluster:
-  name: "custom-postgres-ha"
-  
-primary:
-  host: "10.0.1.10"
-  port: 5432
-  data_directory: "/opt/postgresql/data"  # Custom path
-  replication_user: "replicator"
-  replication_password: "custom_secure_password"
-
-replicas:
-  - host: "10.0.1.11"
-    port: 5432
-    replication_slot: "custom_replica"
-    sync_mode: "async"
-```
-
-</Tab>
-</Tabs>
-
-## Best Practices Examples
-
-### Security-Focused Configuration
-
-```yaml
-cluster:
-  name: "secure-postgres-ha"
-  
-primary:
-  host: "db-primary.internal"
-  port: 5432
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "repl_user_$(date +%Y)"  # Year-based user
-  replication_password: "$(openssl rand -base64 32)"  # Strong password
-
-replicas:
-  - host: "db-replica.internal"
-    port: 5432
-    replication_slot: "secure_replica_slot"
-    sync_mode: "sync"  # Synchronous for security
-
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 2
-  wal_keep_size: "2GB"
-  hot_standby: true
-  synchronous_commit: "remote_apply"  # Strongest consistency
-
-monitoring:
-  health_check_interval: "15s"
-  auto_promote_on_primary_failure: true
-```
-
-### Resource-Optimized Configuration
-
-```yaml
-cluster:
-  name: "optimized-postgres-ha"
-  
-primary:
-  host: "10.0.1.10"
-  port: 5432
-  data_directory: "/var/lib/postgresql/data"
-  replication_user: "replicator"
-  replication_password: "optimized_password"
-
-replicas:
-  - host: "10.0.1.11"
-    port: 5432
-    replication_slot: "optimized_replica"
-    sync_mode: "async"
-
-postgresql:
-  wal_level: "replica"
-  max_wal_senders: 2  # Minimal for resource saving
-  wal_keep_size: "512MB"  # Smaller for limited storage
-  hot_standby: true
-  synchronous_commit: "off"  # Faster, less safe
-
-monitoring:
-  health_check_interval: "45s"  # Less frequent checks
-  auto_promote_on_primary_failure: true
-```
-
-## Usage Instructions
-
-For any of these examples:
-
-1. **Copy the configuration** to a file (e.g., `cluster.yaml`)
-2. **Modify IP addresses** to match your servers
-3. **Update passwords** with secure values
-4. **Adjust paths** for your PostgreSQL installation
-5. **Validate the configuration**:
-   ```bash
-   ha-syncgen validate cluster.yaml
-   ```
-6. **Generate the scripts**:
-   ```bash
-   ha-syncgen build cluster.yaml
-   ```
-
-<Callout type="tip">
-  Always test configurations in a development environment before deploying to production.
-</Callout>
-
-## Next Steps
-
-- [Configuration Reference](/docs/configuration) - Learn about all available options
-- [Generated Scripts](/docs/generated-scripts) - Understand what gets created
-- [Troubleshooting](/docs/troubleshooting) - Solve common configuration issues
