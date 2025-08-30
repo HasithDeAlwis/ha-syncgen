@@ -1,0 +1,45 @@
+---
+title: AWS Dev Environment Overview
+description: What the AWS dev environment is, and how the Makefile automates cluster setup
+---
+
+# AWS Dev Environment (devenv/aws)
+
+This environment provides a fully automated workflow for deploying, configuring, and managing a PostgreSQL High Availability (HA) cluster on AWS. It uses Terraform for infrastructure, Go for script generation, and a Makefile to orchestrate the entire process.
+
+## What is this?
+- **Purpose:** Rapidly spin up, configure, and manage a full HA PostgreSQL cluster for development, testing, or production on AWS.
+- **Automation:** Handles everything from infrastructure provisioning to database deployment and HA script execution.
+- **Idempotent:** You can re-run most steps safely to update or repair your environment.
+
+## How does it work?
+- **Terraform** provisions all AWS resources (EC2, networking, etc.).
+- **Go scripts** generate all configs, SQL, and automation scripts based on your infra.
+- **Makefile** ties it all together, providing simple commands for each stage.
+
+## Key Makefile Commands
+
+| Command                     | What it does                                                                 |
+|-----------------------------|------------------------------------------------------------------------------|
+| `make init-env`             | Sets up Terraform config (creates `terraform.tfvars` if missing)              |
+| `make aws`                  | Runs `terraform init`, `plan`, and `apply` to provision AWS infra             |
+| `make scripts`              | Generates all deployment files (config, SQL, Docker, shell scripts)           |
+| `make syncgen`              | Builds and runs the main syncgen CLI to generate HA scripts                   |
+| `make deploy`               | Deploys PostgreSQL containers and scripts to AWS servers                      |
+| `make syncgen-transfer-execute` | Transfers and executes all HA scripts on the VMs (enables HA)            |
+| `make clean`                | Destroys infra and removes all generated files and state                      |
+
+## Convenience Targets
+- `make full-deploy`: Runs the full flow: `init-env` → `aws` → `scripts` → `deploy`
+- `make full-stack`: Full deploy + syncgen + transfer + execute (end-to-end HA)
+- `make dev-cycle`: Quick redeploy (scripts + deploy)
+
+## When to use this?
+- Spinning up a new test or dev cluster
+- Rebuilding or updating infra/scripts after changes
+- Practicing or automating disaster recovery
+- End-to-end demos or CI/CD
+
+---
+
+See [instructions](./instructions.mdx) for a step-by-step guide.
