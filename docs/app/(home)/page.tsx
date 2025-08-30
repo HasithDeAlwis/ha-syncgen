@@ -147,7 +147,7 @@ export default function HomePage() {
                   <div className="aspect-video bg-muted/50 flex items-center justify-center">
                     <iframe
                       className="w-full h-full"
-                      src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                      src="https://www.youtube.com/embed/t6_1EYJGVjk"
                       title="ha-syncgen Demo"
                       frameBorder="0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
