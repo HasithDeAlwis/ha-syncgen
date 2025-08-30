@@ -1,4 +1,7 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import Image from 'next/image';
+import LightModeLogo from "../public/logo.dark.svg"
+import DarkModeLogo from "../public/logo.light.svg"
 
 /**
  * Shared layout configurations
@@ -11,13 +14,10 @@ export const baseOptions: BaseLayoutProps = {
   nav: {
     title: (
       <>
-        <svg
-          width="24"
-          height="24"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-label="Logo"
-        >
-        </svg>
+        <Image
+          width={54}
+          alt="Syncgen Logo" src={DarkModeLogo}
+        />
         Syncgen
       </>
     ),
