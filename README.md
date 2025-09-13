@@ -57,7 +57,7 @@ For AWS/dev automation and advanced workflows, see [`devenv/aws/main.go`](./deve
 - PRs welcome!
 
 ## License
-Apache 2.0
+GNU GPL 3.0
 
 ---
 
